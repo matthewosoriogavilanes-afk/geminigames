@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Rhythm Engine - Ultimate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Permanent+Marker&family=Press+Start+2P&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --stage-bg: url('https://files.catbox.moe/wqq3sb.png');
+            --char-opponent: url('https://static.wikia.nocookie.net/fridaynightfunking/images/6/68/QTRewiredNewIdle.gif');
+            --char-player: url('https://fridaynightfunkin.wiki.gg/images/Pico_Newgrounds.gif?a5f3d8');
+        }
+
+        html { background: #000; overflow: hidden; width: 100%; height: 100%; }
+        body { background: #000; color: white; overflow: hidden; font-family: 'Segoe UI', sans-serif; margin: 0; width: 100%; height: 100%; user-select: none; }
+
+        #game-container { 
+            position: relative; width: 100vw; height: 100vh; 
+            display: flex; justify-content: center; align-items: center; 
+            background: #000; overflow: hidden; 
+            perspective: 1000px;
+        }
+
+        .fnf-menu-bg {
+            background: repeating-linear-gradient(
+                45deg,
+                #E11D48, 
+                #E11D48 40px,
+                #15803d, 
+                #15803d 80px
+            ) !important;
+            animation: bgScroll 4s linear infinite;
+        }
+        @keyframes bgScroll { from { background-position: 0 0; } to { background-position: 80px 0; } }
+
+        .menu-item {
+            font-family: 'Luckiest Guy', cursive;
+            font-size: 2.5rem;
+            color: white;
+            text-shadow: 3px 3px 0 #000;
+            -webkit-text-stroke: 1.5px black;
+            cursor: pointer;
+            transition: transform 0.1s, color 0.1s;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            line-height: 1.1;
+        }
+        .menu-item:hover { color: #33ffff; transform: scale(1.1) translateX(20px); }
+        .logo-bump { animation: logoBump 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes logoBump { 0% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        #cam-layer { 
+            position: absolute; width: 110%; height: 110%; top: -5%; left: -5%; 
+            will-change: transform; z-index: 0; transform-style: preserve-3d;
+        }
+        #stage-background { 
+            position: absolute; inset: 0; background-image: var(--stage-bg); 
+            background-size: cover; background-position: center; 
+            filter: brightness(0.4) saturate(1.2); z-index: 0; background-color: #1a0b2e;
+        }
+        
+        #character-qt, #character-pico { 
+            position: absolute; bottom: 60px; width: 320px; height: 320px; 
+            background-size: contain; background-repeat: no-repeat; background-position: center bottom; 
+            z-index: 5; transition: transform 0.05s linear; 
+        }
+        #character-qt { left: 12%; background-image: var(--char-opponent); }
+        #character-pico { right: 12%; background-image: var(--char-player); }
+
+        .pose-left  { transform: translateX(-35px) scale(1.05) rotate(-3deg) !important; }
+        .pose-down  { transform: translateY(35px) scale(0.95) !important; }
+        .pose-up    { transform: translateY(-35px) scale(1.05) !important; }
+        .pose-right { transform: translateX(35px) scale(1.05) rotate(3deg) !important; }
+        .bop { transform: scaleY(0.95) scaleX(1.025) translateY(10px); }
+        .miss-pose { filter: grayscale(0.5) brightness(0.5) hue-rotate(200deg); transform: scale(0.95) !important; }
+
+        #ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 50; }
+        
+        #flash-layer {
+            position: absolute; inset: 0; background: white; opacity: 0; 
+            pointer-events: none; z-index: 45; mix-blend-mode: overlay;
+        }
+
+        #play-area { position: absolute; inset: 0; display: flex; justify-content: space-between; padding: 0 10%; pointer-events: none; z-index: 10; }
+        .strum-line { display: flex; gap: 15px; z-index: 10; height: 100vh; align-items: flex-end; padding-bottom: 110px; pointer-events: auto; position: relative; transition: padding-bottom 0.5s; }
+        .lane { width: 75px; height: 100%; position: relative; }
+        .lane-underlay { position: absolute; top: 0; bottom: 0; left: 0; right: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent); z-index: -1; border-radius: 10px; }
+        .lane.pressed { background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1), transparent); }
+        .lane.flash { background: linear-gradient(to bottom, rgba(255, 255, 255, 0.3), transparent); transition: background 0.1s; }
+        .receptor { width: 75px; height: 75px; position: absolute; bottom: 0; display: flex; justify-content: center; align-items: center; opacity: 0.8; transition: transform 0.05s, filter 0.1s; }
+        .receptor.active { opacity: 1; transform: scale(0.9); }
+        .arrow-svg { width: 95%; height: 95%; pointer-events: none; z-index: 21; overflow: visible; transition: opacity 0.1s; }
+
+        #top-bar { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 400px; height: 12px; background: rgba(0,0,0,0.5); border: 2px solid white; border-radius: 6px; z-index: 60; overflow: hidden; }
+        #time-bar-fill { height: 100%; width: 0%; background: white; transition: width 0.1s linear; }
+        #time-text { position: absolute; width: 100%; text-align: center; font-family: 'Luckiest Guy'; font-size: 0.8rem; line-height: 12px; color: black; text-shadow: none; }
+        
+        #health-bar-container { 
+            position: absolute; bottom: 45px; left: 50%; transform: translateX(-50%); 
+            width: 600px; height: 20px; 
+            background: #FF69B4; 
+            border: 3px solid black; border-radius: 10px; 
+            z-index: 60; overflow: visible; box-shadow: 0 0 10px rgba(0,0,0,0.5); 
+        }
+        #health-bar-fill { height: 100%; width: 50%; background: #4ade80; float: right; transition: width 0.1s linear; border-radius: 0 5px 5px 0; }
+        
+        .health-icon { 
+            position: absolute; top: -35px; width: 70px; height: 70px; 
+            border-radius: 50%; border: 3px solid black; 
+            transition: left 0.1s linear;
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Luckiest Guy', cursive; font-size: 1.2rem; color: white; text-shadow: 2px 2px 0 black;
+            font-weight: bold;
+            background-image: none !important;
+        }
+        #icon-pico { left: 0; } 
+        #icon-qt { left: 0; } 
+        
+        #score-container { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); width: 800px; text-align: center; z-index: 60; background: transparent; padding: 0; border: none; display: flex; justify-content: center; gap: 20px; font-family: 'Segoe UI', sans-serif; font-weight: bold; text-shadow: 1px 1px 2px black; font-size: 1.1rem; }
+        .hud-text { color: white; display: inline-flex; gap: 5px; }
+        .combo-bump { transform: scale(1.05); transition: transform 0.05s; }
+        
+        #judgement-counter {
+            position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
+            background: rgba(0,0,0,0.5); padding: 15px; border-radius: 10px; border: 2px solid white;
+            font-family: 'Luckiest Guy'; color: white; z-index: 60; text-align: left;
+            display: none;
+        }
+        .judge-item { font-size: 1.2rem; text-shadow: 1px 1px 0 black; margin-bottom: 5px; }
+
+        #rating-display-area { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 0; height: 0; pointer-events: none; z-index: 60; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: visible; }
+        .rating-popup { position: absolute; font-family: 'Luckiest Guy', cursive; font-size: 3rem; animation: popup 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; text-shadow: 2px 2px 0 #000; white-space: nowrap; letter-spacing: 1px; z-index: 10; }
+        .combo-num { position: absolute; font-family: 'Luckiest Guy', cursive; font-size: 3rem; color: white; text-shadow: 2px 2px 0 #000; animation: popup 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; margin-top: 50px; }
+        @keyframes popup { 0% { transform: scale(0.5) translateY(20px); opacity: 0; } 40% { transform: scale(1) translateY(0); opacity: 1; } 100% { transform: scale(1) translateY(-20px); opacity: 0; } }
+
+        #boot-screen, #start-screen, #game-over-screen, #pause-screen, #results-screen { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2000; }
+        #boot-screen { background: black; }
+        #start-screen { display: none; overflow: hidden; background: #000; } 
+        #game-over-screen { background: black; display: none; z-index: 3000; }
+        
+        #pause-screen { background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: none; z-index: 4000; }
+        .pause-menu-item { font-family: 'Luckiest Guy'; font-size: 3rem; color: white; cursor: pointer; text-shadow: 2px 2px 0 #000; margin: 10px; transition: transform 0.1s; }
+        .pause-menu-item.selected { color: #33ffff; transform: scale(1.1); }
+        .pause-menu-item:hover { color: #33ffff; transform: scale(1.1); }
+
+        #results-screen { background: rgba(0,0,0,0.9); display: none; z-index: 3500; }
+        .rank-text { font-family: 'Permanent Marker'; font-size: 8rem; color: #FACC15; text-shadow: 4px 4px 0 #000; animation: popup 0.5s ease-out; }
+
+        .btn-game-over { background: #ef4444; color: white; padding: 12px 30px; margin: 10px; border-radius: 8px; font-family: 'Luckiest Guy', cursive; font-size: 1.5rem; border: 2px solid white; transition: transform 0.1s; }
+        .btn-game-over:hover { transform: scale(1.1); cursor: pointer; }
+
+        #botplay-txt { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); font-family: 'Luckiest Guy'; font-size: 2rem; color: white; text-shadow: 2px 2px 0 black; display: none; z-index: 60; animation: pulse 1s infinite; }
+
+        /* Editor */
+        #editor-overlay { position: absolute; top: 0; bottom: 0; left: 0; right: 0; background: black; z-index: 500; display: none; flex-direction: column; padding: 20px; }
+        .editor-header { padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; margin-bottom: 10px; }
+        .editor-grid-container { flex: 1; overflow-y: scroll; position: relative; background: black; border: 2px solid #333; scroll-behavior: auto; contain: content; }
+        .editor-track { width: 100%; position: relative; cursor: crosshair; }
+        .time-marker { position: absolute; left: 5px; font-family: 'Segoe UI', sans-serif; font-size: 12px; font-weight: bold; color: #4ade80; pointer-events: none; z-index: 20; }
+        #editor-playhead { position: absolute; left: 0; right: 0; height: 4px; background: #ef4444; top: 50%; z-index: 100; pointer-events: none; box-shadow: 0 0 10px #ef4444; }
+        .btn-editor { background: #333; color: white; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 0.75rem; transition: all 0.1s; border: 1px solid #555; }
+        .btn-editor:hover { background: #555; }
+        .btn-active { background: #4ade80 !important; color: black !important; border-color: white !important; }
+        .btn-record { background: #ef4444; color: white; border-color: #ff8888; }
+        .btn-record.recording { background: white !important; color: red !important; animation: pulse 1s infinite; }
+        #import-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; justify-content: center; align-items: center; }
+        #custom-message { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #4ade80; color: black; padding: 10px 20px; border-radius: 8px; font-weight: bold; z-index: 9999; display: none; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+
+        #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Camera Layer -->
+        <div id="cam-layer">
+            <div id="stage-background"></div>
+            <div id="character-qt"></div>
+            <div id="character-pico"></div>
+        </div>
+        <div class="absolute top-2 left-3 text-[10px] text-gray-500 font-sans z-[3000] pointer-events-none opacity-50">Assets loading...</div>
+        <div id="boot-screen">
+            <h1 class="text-5xl font-black mb-8 title-font text-white">GEMINI ENGINE</h1>
+            <button class="btn-green bg-green-400 text-black px-10 py-4 rounded-full font-bold text-2xl hover:scale-105 transition" onmouseenter="playHoverSound()" onclick="initializeAudio()">START ENGINE</button>
+        </div>
+        <div id="start-screen" class="fnf-menu-bg">
+            <div class="absolute top-4 left-4">
+                <h1 id="menu-logo" class="text-4xl text-white drop-shadow-lg" style="font-family: 'Press Start 2P', cursive; -webkit-text-stroke: 2px black; line-height: 1.5;">FRIDAY NIGHT<br>FUNKIN'</h1>
+            </div>
+            <div class="flex flex-col items-start gap-3 absolute bottom-4 left-4 z-10">
+                <div class="menu-item" onclick="showToast('You think we really made this?')">STORY MODE</div>
+                <div class="menu-item" onclick="playGame()" style="color: #33ffff;">FREEPLAY</div>
+                <div class="menu-item" id="diff-selector" onclick="cycleDifficulty()">DIFFICULTY: NORMAL</div>
+                <div class="menu-item" id="scroll-selector" onclick="toggleScroll()">SCROLL: DOWN</div>
+                <div class="menu-item" id="hitsound-selector" onclick="toggleHitsounds()">HITSOUNDS: OFF</div>
+                <div class="menu-item" onclick="toggleEditor()">CHART EDITOR</div>
+            </div>
+        </div>
+        
+        <div id="pause-screen">
+            <h1 class="text-6xl text-white font-bold mb-8" style="font-family: 'Permanent Marker';">PAUSED</h1>
+            <div class="pause-menu-item" id="pause-item-0" onclick="resumeGame()">RESUME</div>
+            <div class="pause-menu-item" id="pause-item-1" onclick="restartGame()">RESTART</div>
+            <div class="pause-menu-item" id="pause-item-2" onclick="returnToMenu()">EXIT</div>
+        </div>
+        
+        <div id="results-screen">
+            <h1 class="text-5xl text-white font-bold mb-4" style="font-family: 'Luckiest Guy';">SONG CLEARED!</h1>
+            <div id="rank-text" class="rank-text">S</div>
+            <div class="text-2xl text-gray-300 font-mono mt-4 text-center">
+                <p>SCORE: <span id="res-score" class="text-white">0</span></p>
+                <p>MISSES: <span id="res-misses" class="text-red-400">0</span></p>
+                <p>ACCURACY: <span id="res-acc" class="text-green-400">0%</span></p>
+            </div>
+            <button class="btn-game-over mt-8" onclick="returnToMenu()">CONTINUE</button>
+        </div>
+        <div id="game-over-screen">
+            <h1 class="text-9xl mb-8 text-red-600 font-bold drop-shadow-lg" style="font-family: 'Permanent Marker', cursive; text-shadow: 4px 4px 0 #fff;">GAME OVER</h1>
+            <div class="text-center mb-8">
+                <img src="https://static.wikia.nocookie.net/fridaynightfunking/images/e/e8/Boyfriend_Dead_Assets.png" class="h-64 object-contain mx-auto" onerror="this.style.display='none'; document.getElementById('death-text').style.display='block'">
+                <h2 id="death-text" style="display:none" class="text-4xl text-blue-500 font-bold">RETRY?</h2>
+            </div>
+            <div class="flex gap-4">
+                <button class="btn-game-over" onmouseenter="playHoverSound()" onclick="retryGame()">RETRY</button>
+                <button class="btn-game-over bg-gray-800" onmouseenter="playHoverSound()" onclick="returnToMenu()">MENU</button>
+            </div>
+        </div>
+        <div id="countdown" class="hidden absolute text-8xl font-black text-green-400 z-[1100]">3</div>
+        
+        <div id="judgement-counter">
+            <div class="judge-item" style="color:#e066ff">MARV: <span id="count-marv">0</span></div>
+            <div class="judge-item" style="color:#22d3ee">SICK: <span id="count-sick">0</span></div>
+            <div class="judge-item" style="color:#4ade80">GOOD: <span id="count-good">0</span></div>
+            <div class="judge-item" style="color:#facc15">BAD: <span id="count-bad">0</span></div>
+            <div class="judge-item" style="color:#ef4444">MISS: <span id="count-miss">0</span></div>
+        </div>
+
+        <div id="ui-layer">
+            <div id="flash-layer"></div>
+            <div id="botplay-txt">BOTPLAY</div>
+            <div id="top-bar">
+                <div id="time-bar-fill"></div>
+                <div id="time-text">0:00 / 0:00</div>
+            </div>
+            <div id="rating-display-area"></div>
+            <div id="health-bar-container">
+                <div id="health-bar-fill"></div>
+                <div id="icon-group" style="position: absolute; top: 0; left: 50%; width: 0; height: 0;">
+                    <!-- FORCE COLOR STYLE HERE -->
+                    <div id="icon-qt" class="health-icon" style="transform: translate(-100%, 0); background-color: #FF69B4 !important;">QT</div>
+                    <div id="icon-pico" class="health-icon" style="transform: translate(0, 0); background-color: #4ade80 !important;">Pico</div>
+                </div>
+            </div>
+            <div id="score-container">
+                <span class="hud-text">Score: <span id="score">0</span></span>
+                <span class="hud-text">•</span>
+                <span class="hud-text">Combo: <span id="combo">0</span></span>
+                <span class="hud-text">•</span>
+                <span class="hud-text">Accuracy: <span id="accuracy">?</span> <span id="rank-display"></span></span>
+            </div>
+        </div>
+        <div id="play-area">
+            <canvas id="game-canvas"></canvas>
+            <div class="strum-line" id="strum-opponent">
+                <div class="lane" id="lane-0"><div class="lane-underlay"></div><div class="receptor" id="receptor-0"></div></div>
+                <div class="lane" id="lane-1"><div class="lane-underlay"></div><div class="receptor" id="receptor-1"></div></div>
+                <div class="lane" id="lane-2"><div class="lane-underlay"></div><div class="receptor" id="receptor-2"></div></div>
+                <div class="lane" id="lane-3"><div class="lane-underlay"></div><div class="receptor" id="receptor-3"></div></div>
+            </div>
+            <div class="strum-line" id="strum-player">
+                <div class="lane" id="lane-4"><div class="lane-underlay"></div><div class="receptor" id="receptor-4"></div></div>
+                <div class="lane" id="lane-5"><div class="lane-underlay"></div><div class="receptor" id="receptor-5"></div></div>
+                <div class="lane" id="lane-6"><div class="lane-underlay"></div><div class="receptor" id="receptor-6"></div></div>
+                <div class="lane" id="lane-7"><div class="lane-underlay"></div><div class="receptor" id="receptor-7"></div></div>
+            </div>
+        </div>
+        <div id="editor-overlay">
+            <div class="editor-header">
+                <div>
+                    <h2 class="text-xl font-bold text-white uppercase tracking-tighter">Pro Chart Editor</h2>
+                    <div class="text-[10px] text-gray-500 font-mono">REC: Play & Tap • Right Click: Remove</div>
+                </div>
+                <div class="flex gap-2 items-center">
+                    <select id="snap-select" class="bg-gray-800 text-white text-xs p-1 rounded border border-gray-600" onchange="updateSnap()" onfocus="this.blur()">
+                        <option value="1">1/16</option>
+                        <option value="2">1/8</option>
+                        <option value="4">1/4</option>
+                    </select>
+                    <select id="speed-select" class="bg-gray-800 text-white text-xs p-1 rounded border border-gray-600" onchange="updateSpeed()" onfocus="this.blur()">
+                        <option value="1">1.0x</option>
+                        <option value="0.75">0.75x</option>
+                        <option value="0.5">0.5x</option>
+                    </select>
+                    <button class="btn-editor" id="metronome-btn" onclick="toggleMetronome(); this.blur()">Metro: OFF</button>
+                    <button class="btn-editor btn-record" id="record-btn" onclick="toggleRecordMode(); this.blur()">🔴 REC</button>
+                    <div class="w-[1px] h-6 bg-gray-600 mx-2"></div>
+                    <button class="btn-editor" id="editor-mode-btn" onmouseenter="playHoverSound()" onclick="toggleNoteMode(); this.blur()">Mode: TAP</button>
+                    <button class="btn-editor" id="char-swap-btn" onmouseenter="playHoverSound()" onclick="swapEditorChar(); this.blur()">Swap: PLAYER</button>
+                    <button class="btn-editor" onmouseenter="playHoverSound()" onclick="clearChart(); this.blur()">Clear</button>
+                    <button class="btn-editor" onmouseenter="playHoverSound()" onclick="openImportModal(); this.blur()">Import</button>
+                    <button class="btn-editor" id="export-btn" onmouseenter="playHoverSound()" onclick="exportChart(); this.blur()">Export</button>
+                    <button class="btn-editor" style="background:#ef4444" onmouseenter="playHoverSound()" onclick="toggleEditor(); this.blur()">Exit</button>
+                </div>
+            </div>
+            <div class="editor-grid-container" id="editor-scroller">
+                <div id="editor-track" class="editor-track" onmousedown="handleGridClick(event)" oncontextmenu="event.preventDefault()">
+                    <div id="editor-playhead"></div>
+                </div>
+                <canvas id="editor-canvas" style="position: sticky; top: 0; left: 0; pointer-events: none; width: 100%; height: 100%;"></canvas>
+            </div>
+            <div class="p-4 bg-gray-900/50 border-t border-gray-700 flex items-center gap-4">
+                <button id="editor-play-btn" class="btn-editor w-32" onmouseenter="playHoverSound()" onclick="toggleMusic(); this.blur()">PLAY/PAUSE</button>
+                <div class="flex-1">
+                    <input type="range" id="time-slider" class="w-full h-2 bg-gray-700 rounded-lg cursor-pointer accent-green-400" min="0" value="0" step="0.01">
+                </div>
+                <div id="editor-time" class="font-mono text-sm font-bold text-white w-20">0.00s</div>
+            </div>
+        </div>
+        <div id="import-modal">
+            <div class="bg-gray-900 p-8 rounded-xl border border-gray-700 w-full max-w-lg">
+                <h3 class="text-xl font-bold mb-4">Paste Chart JSON</h3>
+                <textarea id="import-area" class="w-full h-64 bg-black border border-gray-600 p-4 font-mono text-xs text-green-400 mb-4" placeholder='[{"time": 1000, "lane": 4} ...]'></textarea>
+                <div class="flex justify-end gap-2">
+                    <button class="btn-editor" onmouseenter="playHoverSound()" onclick="closeImportModal()">Cancel</button>
+                    <button class="btn-editor btn-active" onmouseenter="playHoverSound()" onclick="importChart()">Import</button>
+                </div>
+            </div>
+        </div>
+        <div id="custom-message"></div>
+    </div>
+
+    <!-- Audio -->
+    <audio id="music-intro" loop></audio>
+    <audio id="music-main"></audio>
+
+    <script>
+        const AUDIO_SOURCES = { intro: "https://files.catbox.moe/k06dgm.mp3", main: "https://files.catbox.moe/ujcwx8.mp3" };
+        const musicMain = document.getElementById('music-main');
+        const musicIntro = document.getElementById('music-intro');
+        const bootScreen = document.getElementById('boot-screen');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const pauseScreen = document.getElementById('pause-screen');
+        const resultsScreen = document.getElementById('results-screen');
+        const editorOverlay = document.getElementById('editor-overlay');
+        const editorTrack = document.getElementById('editor-track');
+        const editorScroller = document.getElementById('editor-scroller');
+        const timeSlider = document.getElementById('time-slider');
+        const editorTime = document.getElementById('editor-time');
+        const countdownEl = document.getElementById('countdown');
+        const qtElement = document.getElementById('character-qt');
+        const picoElement = document.getElementById('character-pico');
+        const ratingContainer = document.getElementById('rating-display-area');
+        const customMsg = document.getElementById('custom-message');
+        const healthBarFill = document.getElementById('health-bar-fill');
+        const timeBarFill = document.getElementById('time-bar-fill');
+        const timeText = document.getElementById('time-text');
+        const camLayer = document.getElementById('cam-layer');
+        const scoreContainer = document.getElementById('score-container');
+        const accuracyEl = document.getElementById('accuracy');
+        const rankDisplay = document.getElementById('rank-display');
+        const gameCanvas = document.getElementById('game-canvas');
+        const gameCtx = gameCanvas.getContext('2d');
+        const menuLogo = document.getElementById('menu-logo');
+        const iconGroup = document.getElementById('icon-group');
+        const botplayEl = document.getElementById('botplay-txt');
+        const diffSelector = document.getElementById('diff-selector');
+        const scrollSelector = document.getElementById('scroll-selector');
+        const hitsoundSelector = document.getElementById('hitsound-selector');
+        const judgeCounter = document.getElementById('judgement-counter');
+        const countMarv = document.getElementById('count-marv');
+        const countSick = document.getElementById('count-sick');
+        const countGood = document.getElementById('count-good');
+        const countBad = document.getElementById('count-bad');
+        const countMiss = document.getElementById('count-miss');
+        const flashOverlay = document.getElementById('flash-layer');
+
+        const bpm = 137;
+        const crochet = 60000 / bpm;
+        const stepMs = crochet / 4;
+        const hitWindow = 140;
+        const ROW_HEIGHT = 100;
+
+        let isPlaying = false, isEditing = false, isPaused = false, isBotplay = false;
+        let activeNotes = [];
+        let score = 0, combo = 0, health = 50, isGameOver = false;
+        let currentEditorSide = 1, currentEditorLane = 4, noteMode = 'tap', lastBeat = 0;
+        let chartDuration = 0;
+        
+        let camZoom = 1.05;
+        let hudScale = 1.0;
+        let targetCamX = 0;
+        let currentCamX = 0;
+        
+        let difficulty = 1; 
+        let isDownscroll = true; 
+        let scrollSpeed = 2.8;
+        let hitsounds = false;
+
+        let isMouseDown = false, lastPlacedStep = -1, lastPlacedLane = -1, drawMode = 'add';
+        let snapMultiplier = 1; 
+        let isMetronomeOn = false, isRecording = false, recordingKeys = {}; 
+        let userHasEdited = false; 
+        
+        const keysHeld = {};
+
+        let totalHitNotes = 0;
+        let totalAccuracyPoints = 0;
+        let totalMisses = 0;
+        let counts = { marv: 0, sick: 0, good: 0, bad: 0, miss: 0 };
+        let worstHit = 0; 
+        let playState = "SFC";
+        
+        let pauseIndex = 0;
+        let receptorPositions = [];
+        
+        // Smooth Variables
+        let displayHealth = 50;
+        let targetHealth = 50;
+        let flashOpacity = 0;
+        
+        // New Arrays for Canvas FX
+        let splashes = [];
+        let particles = [];
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let chartData = [];
+        const ARROW_COLORS = ['#C24B99', '#00FFFF', '#12FA05', '#F9393F'];
+        const ARROW_IMGS = [];
+
+        function loadArrowImages() {
+            const rots = [270, 180, 0, 90];
+            for(let i=0; i<4; i++) {
+                const color = ARROW_COLORS[i];
+                const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="75" height="75"><defs><filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2" result="blur"/><feComposite in="SourceGraphic" in2="blur" operator="over"/></filter></defs><g transform="rotate(${rots[i]} 50 50)"><path d="M 50 5 L 95 50 L 65 50 L 65 95 L 35 95 L 35 50 L 5 50 Z" fill="none" stroke="black" stroke-width="12" stroke-linejoin="round" /><path d="M 50 5 L 95 50 L 65 50 L 65 95 L 35 95 L 35 50 L 5 50 Z" fill="${color}" stroke="white" stroke-width="5" stroke-linejoin="round" /><path d="M 50 15 L 75 40 L 60 40 L 60 80 L 40 80 L 40 40 L 25 40 Z" fill="white" fill-opacity="0.3" /></g></svg>`;
+                const img = new Image();
+                img.src = 'data:image/svg+xml;base64,' + btoa(svgString);
+                ARROW_IMGS.push({ img: img });
+            }
+        }
+        loadArrowImages();
+
+        function getArrowSVG(lane, isStatic = false) {
+             const rots = [270, 180, 0, 90]; 
+             const color = isStatic ? '#8b9bb4' : ARROW_COLORS[lane % 4];
+             return `<svg class="arrow-svg" viewBox="0 0 100 100" style="transform: rotate(${rots[lane % 4]}deg); overflow: visible;"><path d="M 50 10 L 90 50 L 65 50 L 65 90 L 35 90 L 35 50 L 10 50 Z" fill="none" stroke="black" stroke-width="12" stroke-linejoin="round" /><path d="M 50 10 L 90 50 L 65 50 L 65 90 L 35 90 L 35 50 L 10 50 Z" fill="${color}" stroke="white" stroke-width="6" stroke-linejoin="round" /></svg>`;
+        }
+
+        function getArrowColor(lane) { return ARROW_COLORS[lane % 4]; }
+        function lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
+        
+        function formatTime(ms) {
+            const totalSec = Math.floor(ms / 1000);
+            const min = Math.floor(totalSec / 60);
+            const sec = totalSec % 60;
+            return `${min}:${sec.toString().padStart(2, '0')}`;
+        }
+        
+        function updateReceptorPositions() {
+            receptorPositions = [];
+            for(let i=0; i<8; i++) {
+                const el = document.getElementById(`receptor-${i}`);
+                if(el) {
+                    const rect = el.getBoundingClientRect();
+                    receptorPositions[i] = { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+                }
+            }
+        }
+
+        function cycleDifficulty() {
+            difficulty = (difficulty + 1) % 3;
+            const names = ["EASY", "NORMAL", "HARD"];
+            diffSelector.innerText = `DIFFICULTY: ${names[difficulty]}`;
+        }
+
+        function toggleScroll() {
+            isDownscroll = !isDownscroll;
+            scrollSelector.innerText = `SCROLL: ${isDownscroll ? 'DOWN' : 'UP'}`;
+        }
+
+        function toggleHitsounds() {
+            hitsounds = !hitsounds;
+            hitsoundSelector.innerText = `HITSOUNDS: ${hitsounds ? 'ON' : 'OFF'}`;
+        }
+
+        function playHoverSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playMissSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.2);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        function playMetronomeClick() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        function playTickSound(freq) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playHitSound() {
+            if (!hitsounds || audioCtx.state === 'suspended') return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        function showToast(msg) {
+            customMsg.innerText = msg;
+            customMsg.style.display = 'block';
+            setTimeout(() => { customMsg.style.display = 'none'; }, 2000);
+        }
+
+        function initializeAudio() {
+            musicIntro.src = AUDIO_SOURCES.intro;
+            musicMain.src = AUDIO_SOURCES.main;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const playPromise = musicIntro.play();
+            if (playPromise !== undefined) playPromise.catch(e => showToast("Audio failed to load"));
+            bootScreen.style.opacity = '0';
+            setTimeout(() => {
+                bootScreen.style.display = 'none';
+                startScreen.style.display = 'flex';
+                resizeCanvas();
+                updateReceptorPositions();
+            }, 500);
+            musicMain.onloadedmetadata = () => timeSlider.max = musicMain.duration;
+        }
+
+        function resizeCanvas() {
+            gameCanvas.width = window.innerWidth;
+            gameCanvas.height = window.innerHeight;
+            updateReceptorPositions();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function toggleNoteMode() {
+            noteMode = noteMode === 'tap' ? 'hold' : 'tap';
+            document.getElementById('editor-mode-btn').innerText = `Mode: ${noteMode.toUpperCase()}`;
+            document.getElementById('editor-mode-btn').classList.toggle('btn-active', noteMode === 'hold');
+        }
+
+        function swapEditorChar() {
+            currentEditorSide = currentEditorSide === 1 ? 0 : 1;
+            currentEditorLane = currentEditorSide === 1 ? 4 : 0;
+            document.getElementById('char-swap-btn').innerText = `Swap: ${currentEditorSide === 1 ? 'PLAYER' : 'OPPONENT'}`;
+            initEditorGrid();
+            updateEditorUI();
+        }
+
+        function updateSnap() { snapMultiplier = parseFloat(document.getElementById('snap-select').value); }
+        function updateSpeed() { musicMain.playbackRate = parseFloat(document.getElementById('speed-select').value); }
+        function toggleMetronome() {
+            isMetronomeOn = !isMetronomeOn;
+            document.getElementById('metronome-btn').innerText = isMetronomeOn ? "Metro: ON" : "Metro: OFF";
+            document.getElementById('metronome-btn').classList.toggle('btn-active', isMetronomeOn);
+        }
+        function toggleRecordMode() {
+            isRecording = !isRecording;
+            document.getElementById('record-btn').classList.toggle('recording', isRecording);
+            recordingKeys = {}; 
+            if (isRecording) showToast("RECORDING ACTIVE: Press keys to place notes!");
+        }
+
+        function togglePause() {
+            if (isGameOver || !isPlaying) return;
+            isPaused = !isPaused;
+            if (isPaused) {
+                musicMain.pause();
+                pauseScreen.style.display = 'flex';
+                pauseIndex = 0; 
+                updatePauseUI();
+            } else {
+                musicMain.play();
+                pauseScreen.style.display = 'none';
+            }
+        }
+        
+        function updatePauseUI() {
+            for (let i = 0; i < 3; i++) {
+                const el = document.getElementById(`pause-item-${i}`);
+                if (i === pauseIndex) {
+                    el.classList.add('selected');
+                } else {
+                    el.classList.remove('selected');
+                }
+            }
+        }
+        
+        function resumeGame() {
+            togglePause();
+        }
+
+        function toggleBotplay() {
+            isBotplay = !isBotplay;
+            botplayEl.style.display = isBotplay ? 'block' : 'none';
+            showToast(isBotplay ? "BOTPLAY ON" : "BOTPLAY OFF");
+        }
+
+        function initEditorGrid() {
+            const duration = musicMain.duration || 180;
+            editorTrack.innerHTML = '<div id="editor-playhead"></div>'; 
+            const totalSteps = Math.floor((duration * 1000) / stepMs);
+            const startLane = currentEditorSide === 1 ? 4 : 0; 
+            editorTrack.style.height = `${totalSteps * ROW_HEIGHT}px`;
+
+            for (let i = 0; i < totalSteps; i += 16) {
+                const marker = document.createElement('div');
+                marker.className = 'time-marker';
+                marker.innerText = i / 16;
+                marker.style.top = `${i * ROW_HEIGHT}px`;
+                editorTrack.appendChild(marker);
+            }
+        }
+
+        function handleGridClick(e) {
+            if (isRecording) return;
+            const rect = editorTrack.getBoundingClientRect();
+            const y = e.offsetY; 
+            const x = e.offsetX; 
+            
+            const step = Math.floor(y / ROW_HEIGHT);
+            const colWidth = rect.width / 4;
+            const laneRelative = Math.floor(x / colWidth);
+            
+            if (laneRelative < 0 || laneRelative > 3) return;
+            const actualLane = currentEditorSide === 1 ? (4 + laneRelative) : laneRelative;
+            const drawType = e.button === 2 ? 'remove' : 'add'; 
+            handleNoteAction(step, actualLane, drawType);
+        }
+
+        function handleNoteAction(step, lane, type = 'add') {
+            userHasEdited = true; 
+            const time = Math.round(step * stepMs);
+            const existingIdx = chartData.findIndex(n => n.lane === lane && Math.abs(n.time - time) < 10);
+            if (type === 'remove' && existingIdx !== -1) {
+                chartData.splice(existingIdx, 1);
+            } else if (type === 'add' && existingIdx === -1) {
+                const newNote = { time, lane, type: noteMode, length: noteMode === 'hold' ? stepMs * 4 : 0, spawned: false };
+                chartData.push(newNote);
+            }
+        }
+        
+        function clearChart() {
+            userHasEdited = true;
+            chartData = [];
+            showToast("Chart Cleared");
+        }
+
+        function importChart() { 
+            try { 
+                const input = document.getElementById('import-area').value.trim(); 
+                if (!input) return; 
+                const data = JSON.parse(input); 
+                if (Array.isArray(data)) { 
+                    chartData = data.map(n => ({ ...n, spawned: false })); 
+                    userHasEdited = true; 
+                    closeImportModal(); 
+                } 
+            } catch (e) { showToast("INVALID JSON FORMAT"); } 
+        }
+
+        function drawEditor() {
+            if(!isEditing) return;
+            const canvas = document.getElementById('editor-canvas');
+            const ctx = canvas.getContext('2d');
+            const scroller = document.getElementById('editor-scroller');
+            
+            if(canvas.width !== scroller.clientWidth || canvas.height !== scroller.clientHeight) {
+                canvas.width = scroller.clientWidth;
+                canvas.height = scroller.clientHeight;
+            }
+            
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const scrollTop = scroller.scrollTop;
+            const viewHeight = canvas.height;
+            const colWidth = canvas.width / 4;
+
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            for(let i=1; i<4; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * colWidth, 0);
+                ctx.lineTo(i * colWidth, viewHeight);
+                ctx.stroke();
+            }
+
+            const firstLineWorldY = Math.floor(scrollTop / ROW_HEIGHT) * ROW_HEIGHT;
+            
+            for(let y = firstLineWorldY; y < scrollTop + viewHeight; y += ROW_HEIGHT) {
+                const screenY = y - scrollTop;
+                const stepIndex = Math.round(y / ROW_HEIGHT);
+                if (stepIndex % 4 === 0) {
+                    ctx.strokeStyle = '#666'; 
+                    ctx.lineWidth = 2;
+                } else {
+                    ctx.strokeStyle = '#222'; 
+                    ctx.lineWidth = 1;
+                }
+                ctx.beginPath();
+                ctx.moveTo(0, screenY);
+                ctx.lineTo(canvas.width, screenY);
+                ctx.stroke();
+            }
+            
+            const startY = scrollTop - ROW_HEIGHT; 
+            const endY = scrollTop + viewHeight + ROW_HEIGHT;
+            
+            chartData.forEach(n => {
+                const y = (n.time / stepMs) * ROW_HEIGHT;
+                if (y + 100 > startY && y < endY) {
+                    const screenY = y - scrollTop;
+                    let col = -1;
+                    if (currentEditorSide === 1) { 
+                        if (n.lane >= 4) col = n.lane - 4;
+                    } else { 
+                        if (n.lane < 4) col = n.lane;
+                    }
+                    
+                    if (col !== -1) {
+                        const drawX = col * colWidth + (colWidth/2) - 37.5; 
+                        
+                        if (ARROW_IMGS[n.lane % 4] && ARROW_IMGS[n.lane % 4].img) {
+                             ctx.save();
+                             ctx.translate(drawX + 37.5, screenY + 37.5); 
+                             ctx.drawImage(ARROW_IMGS[n.lane % 4].img, -37.5, -37.5, 75, 75);
+                             ctx.restore();
+                        }
+                        
+                        if (n.type === 'hold') {
+                            const lenPx = (n.length / stepMs) * ROW_HEIGHT;
+                            ctx.fillStyle = ARROW_COLORS[n.lane % 4];
+                            ctx.globalAlpha = 0.5;
+                            ctx.fillRect(drawX + 25, screenY + 37.5, 25, lenPx);
+                            ctx.globalAlpha = 1.0;
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateEditorUI() {
+            drawEditor();
+        }
+
+        function updateHealth(amount) {
+            if (isGameOver || !isPlaying || isPaused) return;
+            health += amount;
+            if (health > 100) health = 100;
+            if (health <= 0 && !isBotplay) { health = 0; triggerGameOver(); }
+            
+            // Set Target logic
+            targetHealth = health;
+        }
+
+        function triggerGameOver() {
+            isGameOver = true; isPlaying = false; musicMain.pause(); musicIntro.pause();
+            gameCtx.clearRect(0,0,gameCanvas.width, gameCanvas.height);
+            activeNotes = []; 
+            gameOverScreen.style.display = 'flex';
+            judgeCounter.style.display = 'none';
+        }
+
+        function retryGame() { 
+            gameOverScreen.style.display = 'none'; 
+            activeNotes = [];
+            gameCtx.clearRect(0,0,gameCanvas.width, gameCanvas.height);
+            playGame(); 
+        }
+
+        function showResults() {
+            isPlaying = false;
+            musicMain.pause();
+            judgeCounter.style.display = 'none';
+            
+            let acc = 0;
+            if (totalHitNotes > 0) acc = (totalAccuracyPoints / (totalHitNotes * 100)) * 100;
+            
+            let rank = "F";
+            if (acc >= 99) rank = "S+";
+            else if (acc >= 95) rank = "S";
+            else if (acc >= 90) rank = "A";
+            else if (acc >= 80) rank = "B";
+            else if (acc >= 70) rank = "C";
+            if (isBotplay) rank = "BOT";
+
+            document.getElementById('rank-text').innerText = rank;
+            document.getElementById('res-score').innerText = score;
+            document.getElementById('res-misses').innerText = totalMisses;
+            document.getElementById('res-acc').innerText = acc.toFixed(2) + "%";
+
+            resultsScreen.style.display = 'flex';
+        }
+
+        function triggerBeatBop() {
+            if (isMetronomeOn && isEditing && !musicMain.paused) playMetronomeClick();
+            if (startScreen.style.display !== 'none') {
+                menuLogo.classList.remove('logo-bump');
+                void menuLogo.offsetWidth;
+                menuLogo.classList.add('logo-bump');
+            }
+            
+            // Enhanced Beat Zoom
+            const currentBeat = Math.floor(musicMain.currentTime * 1000 / crochet);
+            // Measure check (every 4th beat)
+            if (currentBeat % 4 === 0) {
+                camZoom = 1.15; // Big bump
+                hudScale = 1.1;
+            } else {
+                camZoom = 1.08; // Normal bump
+                hudScale = 1.05;
+            }
+            
+            if (!qtElement.className.includes('pose-')) { qtElement.classList.add('bop'); setTimeout(() => qtElement.classList.remove('bop'), 150); }
+            if (!picoElement.className.includes('pose-')) { picoElement.classList.add('bop'); setTimeout(() => picoElement.classList.remove('bop'), 150); }
+            
+            iconGroup.style.transform = 'scale(1.2)';
+            setTimeout(() => iconGroup.style.transform = 'scale(1)', 100);
+        }
+
+        function flashLane(lane) {
+            // Apply glow style to specific receptor
+            const receptor = document.getElementById(`receptor-${lane}`);
+            if (receptor) {
+                const color = ARROW_COLORS[lane % 4];
+                receptor.style.boxShadow = `0 0 20px 5px ${color}`;
+                receptor.style.filter = `brightness(1.5) drop-shadow(0 0 10px ${color})`;
+                setTimeout(() => {
+                    receptor.style.boxShadow = 'none';
+                    receptor.style.filter = 'none';
+                }, 100);
+            }
+
+            // Lane light up (using CSS class for performance)
+            const laneEl = document.getElementById(`lane-${lane}`);
+            if (laneEl) { 
+                laneEl.classList.add('flash'); 
+                setTimeout(() => laneEl.classList.remove('flash'), 100); 
+            }
+        }
+
+        function updateCameraTarget(target) {
+            if (target === 1) targetCamX = 100;
+            else if (target === 2) targetCamX = -100;
+        }
+
+        function triggerSplash(lane) {
+            // Check cache or get element
+            const receptor = document.getElementById(`receptor-${lane}`);
+            if (!receptor) return;
+            
+            // Use cached positions if available to reduce reflows, but fallback to fresh rect
+            let pos;
+            if (receptorPositions[lane]) {
+                pos = receptorPositions[lane];
+            } else {
+                 const rect = receptor.getBoundingClientRect();
+                 pos = { x: rect.left, y: rect.top, width: rect.width, height: rect.height };
+            }
+
+            // Add splash object to be rendered by canvas
+            splashes.push({
+                x: pos.x + pos.width/2,
+                y: pos.y + pos.height/2,
+                color: ARROW_COLORS[lane % 4],
+                life: 1.0,
+                maxLife: 1.0
+            });
+            
+            // Add Particles
+            for(let i=0; i<8; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 2 + Math.random() * 5;
+                particles.push({
+                    x: pos.x + pos.width/2,
+                    y: pos.y + pos.height/2,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    color: ARROW_COLORS[lane % 4],
+                    life: 1.0,
+                    decay: 0.03 + Math.random() * 0.02
+                });
+            }
+        }
+        
+        function drawSplashes(ctx) {
+            // Draw Splashes
+            for(let i = splashes.length - 1; i >= 0; i--) {
+                const s = splashes[i];
+                ctx.save();
+                ctx.globalAlpha = s.life;
+                ctx.strokeStyle = s.color;
+                ctx.lineWidth = 5 * s.life;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, 50 * (1.2 - s.life), 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // Secondary ring
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, 30 * (1.5 - s.life), 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+                
+                s.life -= 0.05;
+                if(s.life <= 0) splashes.splice(i, 1);
+            }
+            
+            // Draw Particles
+            for(let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.fillRect(p.x, p.y, 6, 6);
+                
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.2; // Gravity
+                p.life -= p.decay;
+                
+                if(p.life <= 0) particles.splice(i, 1);
+            }
+            ctx.globalAlpha = 1.0;
+        }
+
+        function triggerCharacterPose(char, lane) {
+            const el = char === 'qt' ? qtElement : picoElement;
+            const pose = ['pose-left', 'pose-down', 'pose-up', 'pose-right'][lane % 4];
+            el.className = ''; el.classList.add(pose);
+            setTimeout(() => el.classList.remove(pose), 200);
+            
+            const r = document.getElementById(`receptor-${lane}`);
+            if(r) {
+                r.classList.add('active'); 
+                setTimeout(() => r.classList.remove('active'), 100);
+            }
+        }
+
+        function showRating(diff, lane) {
+            if (isGameOver) return;
+            const absDiff = Math.abs(diff);
+            let text = "SICK!!", color = "#22d3ee", add = 350, healthChange = 2;
+            let ratingScore = 100;
+            let currentHitStatus = 0; // 0=Marv, 1=Sick, 2=Good, 3=Bad, 4=Miss
+
+            if (absDiff < 25) {
+                // MARVELOUS
+                text = "MARV!!"; color = "#e066ff"; add = 500; combo++; healthChange = 3; ratingScore = 100;
+                counts.marv++;
+                playHitSound();
+                currentHitStatus = 0;
+                flashOpacity = 0.6; // Trigger Flash
+            } else if (absDiff > 135) { 
+                text = "MISS"; color = "#ef4444"; add = 0; combo = 0; healthChange = -4; ratingScore = 0;
+                totalMisses++; counts.miss++;
+                playMissSound();
+                currentHitStatus = 4;
+            } else if (absDiff > 90) { 
+                text = "BAD"; color = "#facc15"; add = 100; combo++; healthChange = 0.5; ratingScore = 50;
+                counts.bad++;
+                currentHitStatus = 3;
+            } else if (absDiff > 45) { 
+                text = "GOOD"; color = "#4ade80"; add = 200; combo++; healthChange = 1.2; ratingScore = 75;
+                counts.good++;
+                currentHitStatus = 2;
+            } else { 
+                text = "SICK!!"; color = "#22d3ee"; add = 350; combo++; healthChange = 2.5; ratingScore = 100;
+                counts.sick++;
+                // Using passed lane for splash
+                if (absDiff < 45) triggerSplash(lane); 
+                playHitSound();
+                currentHitStatus = 1;
+            }
+
+            // Update Worst Hit for Combo State
+            if (currentHitStatus > worstHit) worstHit = currentHitStatus;
+            
+            // Calculate Play State Label based on worstHit
+            if (worstHit === 0) playState = "MFC"; // Marvelous Full Combo
+            else if (worstHit === 1) playState = "SFC";
+            else if (worstHit === 2) playState = "GFC";
+            else if (worstHit === 3) playState = "FC";
+            else playState = "Clear";
+
+            // Update Counter UI
+            countMarv.innerText = counts.marv;
+            countSick.innerText = counts.sick;
+            countGood.innerText = counts.good;
+            countBad.innerText = counts.bad;
+            countMiss.innerText = counts.miss;
+
+            score += add; updateHealth(healthChange);
+            
+            if (ratingScore > 0) totalHitNotes++;
+            totalAccuracyPoints += ratingScore;
+            const acc = totalHitNotes > 0 ? (totalAccuracyPoints / (totalHitNotes * 100)) * 100 : 0;
+            accuracyEl.innerText = `${acc.toFixed(2)}% [${playState}]`;
+            
+            let rank = "F";
+            if (acc >= 99) rank = "S+";
+            else if (acc >= 95) rank = "S";
+            else if (acc >= 90) rank = "A";
+            else if (acc >= 80) rank = "B";
+            else if (acc >= 70) rank = "C";
+            if (isBotplay) rank = "BOT";
+            rankDisplay.innerText = `Rank: ${rank}`;
+
+            document.getElementById('score').innerText = score;
+            document.getElementById('combo').innerText = combo;
+            
+            scoreContainer.classList.add('combo-bump');
+            setTimeout(() => scoreContainer.classList.remove('combo-bump'), 100);
+
+            const popup = document.createElement('div');
+            popup.className = 'rating-popup';
+            popup.innerText = text; popup.style.color = color;
+            
+            // Random positioning logic
+            const rX = (Math.random() * 40) - 20;
+            const rY = (Math.random() * 20) - 10;
+            const rRot = (Math.random() * 10) - 5;
+            popup.style.transform = `translate(${rX}px, ${rY}px) rotate(${rRot}deg)`;
+            
+            ratingContainer.appendChild(popup);
+            
+            if (combo > 0) {
+                const comboEl = document.createElement('div');
+                comboEl.className = 'combo-num';
+                comboEl.innerText = combo;
+                // Offset combo slightly below rating
+                comboEl.style.marginTop = "60px";
+                const cX = (Math.random() * 10) - 5;
+                comboEl.style.transform = `translateX(${cX}px)`;
+                ratingContainer.appendChild(comboEl);
+                setTimeout(() => comboEl.remove(), 500);
+            }
+
+            setTimeout(() => popup.remove(), 500);
+        }
+
+        function handleRecordInput(lane) {
+            if (!isEditing || !isRecording || musicMain.paused || recordingKeys[lane]) return;
+            const snapMs = stepMs * snapMultiplier; 
+            const rawTime = musicMain.currentTime * 1000;
+            const quantizedTime = Math.round(rawTime / snapMs) * snapMs;
+            
+            const existing = chartData.find(n => n.lane === lane && Math.abs(n.time - quantizedTime) < 10);
+            if (!existing) {
+                const newNote = { time: quantizedTime, lane: lane, type: 'tap', length: 0, spawned: false };
+                chartData.push(newNote);
+                recordingKeys[lane] = newNote; 
+                // Canvas renderer will pick this up
+                if (lane >= 4) triggerCharacterPose('pico', lane); else triggerCharacterPose('qt', lane);
+            }
+        }
+
+        function handleRecordRelease(lane) {
+            if (!isEditing || !isRecording || !recordingKeys[lane]) return;
+            const note = recordingKeys[lane];
+            const snapMs = stepMs * snapMultiplier;
+            const rawTime = musicMain.currentTime * 1000;
+            const quantizedEndTime = Math.round(rawTime / snapMs) * snapMs;
+            let length = quantizedEndTime - note.time;
+            
+            if (length > (snapMs * 2)) {
+                note.type = 'hold';
+                note.length = length;
+            }
+            delete recordingKeys[lane];
+        }
+
+        window.addEventListener('keydown', e => {
+            if (e.key === "F1") { toggleBotplay(); return; }
+            if (e.key === "Enter") {
+                if (isPaused) {
+                    const el = document.getElementById(`pause-item-${pauseIndex}`);
+                    if (el) el.click();
+                    return;
+                }
+                togglePause(); 
+                return; 
+            }
+            
+            if (e.repeat || keysHeld[e.code]) return;
+            keysHeld[e.code] = true;
+
+            if (isPaused) {
+                if (e.key === 'ArrowUp') {
+                    pauseIndex = (pauseIndex - 1 + 3) % 3;
+                    updatePauseUI();
+                } else if (e.key === 'ArrowDown') {
+                    pauseIndex = (pauseIndex + 1) % 3;
+                    updatePauseUI();
+                }
+                return;
+            }
+
+            const baseKeys = {'d':0, 'f':1, 'j':2, 'k':3, 'ArrowLeft':0, 'ArrowDown':1, 'ArrowUp':2, 'ArrowRight':3};
+            const relativeLane = baseKeys[e.key] || baseKeys[e.key.toLowerCase()];
+            
+            if (isEditing) {
+                if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); toggleMusic(); return; }
+                if (isRecording && !musicMain.paused && relativeLane !== undefined) {
+                    const actualLane = (currentEditorSide === 1 ? 4 : 0) + relativeLane;
+                    handleRecordInput(actualLane); return; 
+                }
+            } else if (isPlaying && !isGameOver && !isBotplay) {
+                if (relativeLane !== undefined) {
+                    const actualLane = 4 + relativeLane; 
+                    
+                    const laneEl = document.getElementById(`lane-${actualLane}`);
+                    if(laneEl) laneEl.classList.add('pressed');
+
+                    triggerCharacterPose('pico', actualLane); 
+                    updateCameraTarget(2); 
+                    
+                    const songTime = musicMain.currentTime * 1000;
+                    const note = activeNotes.find(n => n.lane === actualLane && !n.hit && Math.abs(n.time - songTime) < hitWindow);
+                    if (note) { 
+                        note.hit = true; 
+                        showRating(note.time - songTime, actualLane); 
+                    } else {
+                        // Ghost tapping allowed - no penalty
+                    }
+                }
+            }
+            if (e.key.toLowerCase() === 'r' && !isEditing) returnToMenu();
+        });
+
+        window.addEventListener('keyup', e => {
+            keysHeld[e.code] = false;
+
+            const baseKeys = {'d':0, 'f':1, 'j':2, 'k':3, 'ArrowLeft':0, 'ArrowDown':1, 'ArrowUp':2, 'ArrowRight':3};
+            const relativeLane = baseKeys[e.key] || baseKeys[e.key.toLowerCase()];
+            
+            if (relativeLane !== undefined) {
+                const actualLane = 4 + relativeLane;
+                const laneEl = document.getElementById(`lane-${actualLane}`);
+                if(laneEl) laneEl.classList.remove('pressed');
+            }
+
+            if (isEditing && isRecording && relativeLane !== undefined) {
+                const actualLane = (currentEditorSide === 1 ? 4 : 0) + relativeLane;
+                handleRecordRelease(actualLane);
+            }
+        });
+
+        function playGame() {
+            if (chartData.length === 0 && !userHasEdited) generateDemoChart();
+            if (chartData.length > 0) chartData.sort((a,b) => a.time - b.time);
+            
+            if (difficulty === 0) scrollSpeed = 0.7;
+            else if (difficulty === 1) scrollSpeed = 1.2;
+            else scrollSpeed = 1.8;
+
+            isPlaying = false; isPaused = false; isGameOver = false;
+            musicMain.pause(); musicMain.currentTime = 0;
+
+            gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+            startScreen.style.display = 'none'; 
+            countdownEl.classList.remove('hidden');
+            judgeCounter.style.display = 'block'; 
+            
+            health = 50; displayHealth = 50; targetHealth = 50;
+            healthBarFill.style.width = '50%';
+            updateHealth(0); 
+            
+            score = 0; combo = 0;
+            totalHitNotes = 0; totalAccuracyPoints = 0; accuracyEl.innerText = "100% [SFC]"; totalMisses = 0;
+            counts = { marv: 0, sick: 0, good: 0, bad: 0, miss: 0 };
+            worstHit = 0; 
+            playState = "SFC";
+            
+            document.getElementById('score').innerText = 0; document.getElementById('combo').innerText = 0;
+            document.getElementById('count-marv').innerText = 0;
+            document.getElementById('count-sick').innerText = 0; document.getElementById('count-good').innerText = 0;
+            document.getElementById('count-bad').innerText = 0; document.getElementById('count-miss').innerText = 0;
+            rankDisplay.innerText = "";
+
+            chartData.forEach(n => n.spawned = false); 
+            activeNotes = []; 
+            lastBeat = 0; 
+            
+            updateReceptorPositions(); 
+
+            if (window.gameStartTimer) clearInterval(window.gameStartTimer);
+
+            let c = 3; 
+            countdownEl.innerText = c;
+            
+            window.gameStartTimer = setInterval(() => { 
+                if (isPaused) return; 
+                playTickSound(c > 0 ? 800 : 1200); 
+                c--; 
+                if (c > 0) {
+                    countdownEl.innerText = c; 
+                } else if (c === 0) {
+                    countdownEl.innerText = "GO!";
+                } else { 
+                    clearInterval(window.gameStartTimer); 
+                    countdownEl.classList.add('hidden'); 
+                    isPlaying = true; 
+                    musicIntro.pause(); 
+                    musicMain.currentTime = 0; 
+                    musicMain.play().catch(e => console.log("Main play blocked")); 
+                } 
+            }, 1000);
+        }
+
+        function restartGame() {
+            pauseScreen.style.display = 'none';
+            activeNotes = [];
+            gameCtx.clearRect(0,0,gameCanvas.width, gameCanvas.height);
+            playGame();
+        }
+
+        function toggleEditor() { 
+            isEditing = !isEditing; 
+            editorOverlay.style.display = isEditing ? 'flex' : 'none'; 
+            
+            const gameElements = [document.getElementById('cam-layer'), document.getElementById('ui-layer')];
+            gameElements.forEach(el => el.style.display = isEditing ? 'none' : 'block');
+
+            startScreen.style.display = 'none'; 
+            
+            if (isEditing) { 
+                userHasEdited = true;
+                musicIntro.pause(); 
+                setTimeout(initEditorGrid, 50); 
+            } else {
+                returnToMenu();
+            }
+        }
+        
+        function returnToMenu() { 
+            isPlaying = false; isEditing = false; isPaused = false;
+            musicMain.pause(); musicMain.currentTime = 0; 
+            activeNotes = []; 
+            score = 0; combo = 0; 
+            chartData.forEach(n => n.spawned = false); 
+            document.getElementById('score').innerText = 0; document.getElementById('combo').innerText = 0; accuracyEl.innerText = "?"; 
+            
+            editorOverlay.style.display = 'none'; 
+            gameOverScreen.style.display = 'none'; 
+            resultsScreen.style.display = 'none';
+            pauseScreen.style.display = 'none';
+            startScreen.style.display = 'flex'; 
+            judgeCounter.style.display = 'none';
+            
+            camZoom = 1.05; targetCamX = 0; currentCamX = 0;
+            camLayer.style.transform = `scale(1.05) translate(0px, 0px)`; 
+            isGameOver = false; health = 50; healthBarFill.style.width = '50%'; updateHealth(0);
+            musicIntro.currentTime = 0; 
+            musicIntro.play().catch(e => console.log("Intro play blocked")); 
+
+            // Reset visibility of game layers that might have been hidden by editor
+            document.getElementById('cam-layer').style.display = 'block';
+            document.getElementById('ui-layer').style.display = 'block';
+        }
+
+        function toggleMusic() { if(musicMain.paused) { musicMain.play().catch(e => console.log("Play blocked")); } else { musicMain.pause(); recordingKeys = {}; } }
+        function openImportModal() { document.getElementById('import-modal').style.display = 'flex'; }
+        function closeImportModal() { document.getElementById('import-modal').style.display = 'none'; }
+        function importChart() { try { const input = document.getElementById('import-area').value.trim(); if (!input) return; const data = JSON.parse(input); if (Array.isArray(data)) { chartData = data.map(n => ({ ...n, spawned: false })); userHasEdited = true; updateEditorUI(); closeImportModal(); } } catch (e) { showToast("INVALID JSON FORMAT"); } }
+        function exportChart() { const json = JSON.stringify(chartData, (k,v) => k === '_el' ? undefined : v); const dummy = document.createElement("textarea"); document.body.appendChild(dummy); dummy.value = json; dummy.select(); try { document.execCommand('copy'); showToast("CHART COPIED TO CLIPBOARD!"); } catch (err) { console.error('Fallback copy failed', err); } document.body.removeChild(dummy); }
+        
+        timeSlider.oninput = (e) => musicMain.currentTime = e.target.value;
+        for(let i=0; i<8; i++) document.getElementById(`receptor-${i}`).innerHTML = getArrowSVG(i, true);
+
+        // Core Game Loop
+        function update() {
+            if (isGameOver || isPaused) {
+                requestAnimationFrame(update);
+                return;
+            }
+            
+            const songTime = musicMain.currentTime * 1000;
+            const totalTime = (musicMain.duration && !isNaN(musicMain.duration) && musicMain.duration !== Infinity) 
+                              ? musicMain.duration * 1000 
+                              : chartDuration;
+            
+            if (totalTime > 0) {
+                const pct = Math.min((songTime / totalTime) * 100, 100);
+                timeBarFill.style.width = `${pct}%`;
+                timeText.innerText = `${formatTime(songTime)} / ${formatTime(totalTime)}`;
+            }
+
+            // Smooth Lerps
+            camZoom = lerp(camZoom, 1.05, 0.05); // Snappier
+            hudScale = lerp(hudScale, 1.0, 0.1);
+            currentCamX = lerp(currentCamX, targetCamX, 0.04);
+            camLayer.style.transform = `scale(${camZoom}) translate(${currentCamX}px, 0px)`;
+            scoreContainer.style.transform = `translateX(-50%) scale(${hudScale})`;
+
+            // Smooth Health
+            displayHealth = lerp(displayHealth, targetHealth, 0.1);
+            healthBarFill.style.width = `${displayHealth}%`;
+            // Icon Movement
+            const percent = displayHealth / 100;
+            const offset = (percent - 0.5) * -600; 
+            iconGroup.style.left = `calc(50% + ${offset}px)`;
+
+            // Flash Fade
+            if (flashOpacity > 0.01) {
+                flashOpacity = lerp(flashOpacity, 0, 0.1);
+                flashOverlay.style.opacity = flashOpacity;
+            } else {
+                flashOverlay.style.opacity = 0;
+            }
+
+            if (isEditing) {
+                timeSlider.value = musicMain.currentTime;
+                editorTime.innerText = musicMain.currentTime.toFixed(2) + "s";
+                if (!musicMain.paused) {
+                    editorScroller.scrollTop = (songTime / stepMs) * ROW_HEIGHT - 300;
+                    document.getElementById('editor-playhead').style.top = `${(songTime / stepMs) * ROW_HEIGHT}px`;
+                }
+                drawEditor(); 
+            } 
+            
+            if (isPlaying || (isEditing && !musicMain.paused) || startScreen.style.display !== 'none') {
+                const timeForBeat = isPlaying ? songTime : Date.now();
+                const currentBeat = Math.floor(timeForBeat / crochet);
+                if (currentBeat > lastBeat) { lastBeat = currentBeat; triggerBeatBop(); }
+            }
+
+            if (isPlaying) {
+                gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+                
+                let receptorY;
+                if (isDownscroll) {
+                    receptorY = gameCanvas.height - 110 - 75;
+                    document.querySelectorAll('.strum-line').forEach(el => {
+                        el.style.alignItems = 'flex-end';
+                        el.style.paddingBottom = '110px';
+                        el.style.paddingTop = '0';
+                    });
+                } else {
+                    receptorY = 110;
+                    document.querySelectorAll('.strum-line').forEach(el => {
+                        el.style.alignItems = 'flex-start';
+                        el.style.paddingTop = '110px';
+                        el.style.paddingBottom = '0';
+                    });
+                }
+
+                chartData.forEach(n => {
+                    if (n.time > songTime && n.time < songTime + 2000 && !n.spawned) {
+                        n.spawned = true;
+                        activeNotes.push({...n, hit: false});
+                    }
+                });
+
+                for (let i = activeNotes.length - 1; i >= 0; i--) {
+                    if (isGameOver) break; 
+                    const n = activeNotes[i];
+                    if (!n) continue; 
+                    const diff = n.time - songTime;
+                    
+                    let noteY;
+                    if (isDownscroll) {
+                        noteY = receptorY - (diff * scrollSpeed);
+                    } else {
+                        noteY = receptorY + (diff * scrollSpeed);
+                    }
+                    
+                    // Use Cached Position
+                    const rPos = receptorPositions[n.lane];
+                    if (rPos) {
+                        const noteX = rPos.x;
+                        
+                        // DRAW HOLD
+                        if (n.type === 'hold') {
+                            const trailLen = (n.length * scrollSpeed);
+                            if (diff < 0) { 
+                                if (n.hit) {
+                                    if (isDownscroll) {
+                                        const tailY = noteY - trailLen;
+                                        if (tailY < receptorY) {
+                                            gameCtx.fillStyle = ARROW_COLORS[n.lane % 4];
+                                            gameCtx.globalAlpha = 0.6;
+                                            gameCtx.fillRect(noteX + 25, tailY, 25, receptorY - tailY); 
+                                            gameCtx.globalAlpha = 1.0;
+                                        }
+                                    } else {
+                                        const tailY = noteY + trailLen;
+                                        if (tailY > receptorY) {
+                                            gameCtx.fillStyle = ARROW_COLORS[n.lane % 4];
+                                            gameCtx.globalAlpha = 0.6;
+                                            gameCtx.fillRect(noteX + 25, receptorY, 25, tailY - receptorY);
+                                            gameCtx.globalAlpha = 1.0;
+                                        }
+                                    }
+                                } else {
+                                    gameCtx.fillStyle = ARROW_COLORS[n.lane % 4];
+                                    gameCtx.globalAlpha = 0.6;
+                                    if (isDownscroll)
+                                        gameCtx.fillRect(noteX + 25, noteY - trailLen, 25, trailLen);
+                                    else
+                                        gameCtx.fillRect(noteX + 25, noteY, 25, trailLen);
+                                    gameCtx.globalAlpha = 1.0;
+                                }
+                            } else {
+                                gameCtx.fillStyle = ARROW_COLORS[n.lane % 4];
+                                gameCtx.globalAlpha = 0.6;
+                                if (isDownscroll)
+                                    gameCtx.fillRect(noteX + 25, noteY - trailLen, 25, trailLen);
+                                else
+                                    gameCtx.fillRect(noteX + 25, noteY, 25, trailLen);
+                                gameCtx.globalAlpha = 1.0;
+                            }
+                        }
+
+                        // DRAW HEAD
+                        if (!n.hit) {
+                            const imgData = ARROW_IMGS[n.lane % 4];
+                            if (imgData && imgData.img && imgData.img.complete) { 
+                                gameCtx.save();
+                                gameCtx.translate(noteX + 37.5, noteY + 37.5);
+                                gameCtx.drawImage(imgData.img, -37.5, -37.5, 75, 75);
+                                gameCtx.restore();
+                            }
+                        }
+                    }
+
+                    if (isBotplay && !n.hit && n.lane >= 4 && diff <= 0) {
+                        n.hit = true;
+                        triggerCharacterPose('pico', n.lane);
+                        flashLane(n.lane);
+                        showRating(0, n.lane); 
+                    }
+
+                    if (n.lane < 4 && !n.hit && diff <= 0) {
+                        n.hit = true; 
+                        triggerCharacterPose('qt', n.lane); 
+                        flashLane(n.lane); 
+                        updateCameraTarget(1);
+                        if (health > 5) updateHealth(-1.5); 
+                    }
+
+                    const killThreshold = n.type === 'hold' ? -(hitWindow + (n.length || 0)) : -hitWindow;
+                    if (diff < killThreshold) {
+                        activeNotes.splice(i, 1);
+                        if (!n.hit && n.lane >= 4) {
+                            showRating(999, n.lane);
+                            picoElement.classList.add('miss-pose');
+                            setTimeout(() => picoElement.classList.remove('miss-pose'), 200);
+                        }
+                    }
+                }
+                
+                // Draw FX on top of notes
+                drawSplashes(gameCtx);
+
+                if (musicMain.ended && !isGameOver) showResults();
+            }
+            requestAnimationFrame(update);
+        }
+
+        requestAnimationFrame(update);
+    </script>
+</body>
+</html>
