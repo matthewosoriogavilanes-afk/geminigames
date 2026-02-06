@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brainrot Wave: Winter Arc Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        body {
+            margin: 0;
+            background-color: #0d001a;
+            color: #fff;
+            font-family: 'Press+Start+2P', cursive;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+            image-rendering: pixelated;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            text-shadow: 3px 3px #ff00ff;
+            z-index: 10;
+        }
+        #overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(15, 0, 30, 0.95);
+            padding: 30px;
+            border: 8px solid #ff00ff;
+            box-shadow: 0 0 30px #00ffff;
+            border-radius: 15px;
+            z-index: 20;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .btn {
+            background: linear-gradient(45deg, #ff00ff, #00ffff);
+            color: white;
+            padding: 15px 30px;
+            margin-top: 15px;
+            cursor: pointer;
+            pointer-events: auto;
+            border: none;
+            font-family: 'Press+Start+2P', cursive;
+            font-size: 16px;
+            animation: pulse 1s infinite;
+            border-radius: 10px;
+            text-transform: uppercase;
+        }
+        .btn-small {
+            padding: 10px 15px; 
+            font-size: 12px;
+            background: #333;
+            border: 1px solid #fff;
+            margin-top: 5px;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .glitch-text {
+            color: #00ffff;
+            text-shadow: 3px 3px #ff00ff;
+        }
+        .stat-label {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        .high-score {
+            font-size: 12px;
+            color: #ffff00;
+            margin-top: 5px;
+        }
+        .skin-btn {
+            background: rgba(0,0,0,0.5);
+            border: 2px solid #555;
+            color: #888;
+            padding: 10px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: 'Press+Start+2P', cursive;
+            font-size: 10px;
+            transition: all 0.2s;
+            display: inline-block;
+        }
+        .skin-btn.unlocked {
+            border-color: #fff;
+            color: #fff;
+        }
+        .skin-btn.unlocked:hover {
+            background: #333;
+        }
+        .skin-btn.active {
+            background: #fff;
+            color: #000;
+            border-color: #00ffff;
+            transform: scale(1.1);
+        }
+        /* Mewing Bar Styles */
+        .bar-container {
+            width: 200px;
+            height: 15px;
+            border: 2px solid #fff;
+            padding: 2px;
+            margin-top: 5px;
+            background: rgba(0,0,0,0.5);
+        }
+        .bar-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #00ffff, #0088ff);
+            transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 10px #00ffff;
+        }
+        .mog-active .bar-fill {
+            background: linear-gradient(90deg, #ffd700, #ffaa00);
+            box-shadow: 0 0 15px #ffd700;
+        }
+        
+        /* Leaderboard Styles */
+        #leaderboard {
+            margin-top: 20px;
+            text-align: left;
+            font-size: 10px;
+            border-top: 2px solid #555;
+            padding-top: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .lb-entry {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            color: #ccc;
+        }
+        .lb-entry.top { color: #ffd700; }
+        input[type="text"] {
+            background: #000;
+            border: 2px solid #00ffff;
+            color: #fff;
+            padding: 10px;
+            font-family: 'Press+Start+2P';
+            font-size: 12px;
+            width: 80%;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <div class="stat-label">AURA: <span id="score" class="glitch-text">0</span></div>
+        <div class="high-score">BEST RUN: <span id="highScore">0</span></div>
+        
+        <div style="margin-top: 15px;">
+            <div style="font-size: 10px; color: #00ffff; text-shadow: 1px 1px #000;">MEWING STREAK</div>
+            <div class="bar-container" id="mewBarContainer">
+                <div id="mewBar" class="bar-fill"></div>
+            </div>
+        </div>
+
+        <div class="stat-label mt-4">RIZZ: <span id="rizz" style="color: #ff00ff;">LOW</span></div>
+        <div style="font-size: 14px; margin-top: 10px; color: #00ffff;">STATUS: <span id="status">WAVE DASHING</span></div>
+    </div>
+
+    <div id="overlay">
+        <h1 id="title" class="text-3xl mb-4 italic font-bold">BRAINROT WAVE</h1>
+        <p id="msg" class="text-xs leading-loose mb-4">
+            HOLD TO <span class="text-blue-400">CLIMB</span>. RELEASE TO <span class="text-purple-400">DIVE</span>.<br>
+            <span class="text-green-400">🛡️ SHIELD</span> PROTECTS ONCE.<br>
+            AVOID <span class="text-red-500">FANUM TAX</span>!<br>
+            COLLECT <span class="text-blue-300">🤫</span> TO MOG.
+        </p>
+
+        <div class="mb-4">
+            <p class="text-xs mb-2 text-yellow-300">SELECT DRIP:</p>
+            <div id="skinContainer" class="flex flex-wrap justify-center gap-2"></div>
+        </div>
+
+        <div id="submitScoreArea" style="display:none;">
+            <input type="text" id="playerName" placeholder="ENTER NAME" maxlength="10">
+            <button class="btn btn-small" onclick="submitScore()">SAVE AURA</button>
+        </div>
+
+        <div id="leaderboard">
+            <div class="text-center text-yellow-400 mb-2">🏆 GLOBAL LEADERBOARD 🏆</div>
+            <div id="lbContent">Loading scores...</div>
+        </div>
+
+        <button class="btn" onclick="startGame()">LOCK IN</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script type="module">
+        // ==========================================
+        // 🔥 FIREBASE SETUP 🔥
+        // ==========================================
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+        import { getAuth, signInAnonymously, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { getFirestore, collection, addDoc, getDocs, query } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        let user = null;
+
+        // Auth Logic
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                user = auth.currentUser;
+                fetchLeaderboard(); // Load scores once auth is done
+            } catch (e) {
+                console.error("Auth failed", e);
+                document.getElementById('lbContent').innerText = "Offline Mode";
+            }
+        }
+        initAuth();
+
+        // Database Logic
+        window.submitScore = async function() {
+            const nameInput = document.getElementById('playerName');
+            const name = nameInput.value.trim() || "Anon";
+            if (!user) return;
+
+            // Simple validation
+            if(score <= 0) return;
+
+            const btn = document.querySelector('#submitScoreArea button');
+            btn.innerText = "SAVING...";
+            btn.disabled = true;
+
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'brainrot_scores'), {
+                    name: name,
+                    score: Math.floor(score),
+                    skin: currentSkin.name,
+                    date: Date.now()
+                });
+                document.getElementById('submitScoreArea').style.display = 'none';
+                await fetchLeaderboard(); // Refresh
+            } catch (e) {
+                console.error("Save failed", e);
+                btn.innerText = "ERROR";
+            }
+        };
+
+        async function fetchLeaderboard() {
+            if (!user) return;
+            const lbDiv = document.getElementById('lbContent');
+            lbDiv.innerHTML = "Fetching stats...";
+
+            try {
+                // Rule: No complex queries. Fetch all, sort in JS.
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'brainrot_scores'));
+                const snapshot = await getDocs(q);
+                let scores = [];
+                snapshot.forEach(doc => scores.push(doc.data()));
+
+                // Sort descending
+                scores.sort((a, b) => b.score - a.score);
+                
+                // Top 5 only
+                const top5 = scores.slice(0, 5);
+
+                let html = "";
+                top5.forEach((s, i) => {
+                    html += `<div class="lb-entry ${i===0 ? 'top' : ''}">
+                        <span>#${i+1} ${s.name.substring(0,10)}</span>
+                        <span>${s.score}</span>
+                    </div>`;
+                });
+                if(scores.length === 0) html = "<div>No scores yet. Be the first!</div>";
+                
+                lbDiv.innerHTML = html;
+            } catch (e) {
+                console.error("Fetch failed", e);
+                lbDiv.innerHTML = "Failed to load.";
+            }
+        }
+
+        // ==========================================
+        // 🎵 MUSIC SETUP 🎵
+        const WINTER_MUSIC_URL = "https://files.catbox.moe/xdcze2.mp3"; 
+        const DEFAULT_MUSIC_URL = "https://files.catbox.moe/2swzay.mp3"; 
+        
+        const bgMusic = new Audio();
+        bgMusic.loop = true; 
+        bgMusic.volume = 0.5; 
+        let currentMusicSrc = ""; 
+        // ==========================================
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const highScoreEl = document.getElementById('highScore');
+        const rizzEl = document.getElementById('rizz');
+        const statusEl = document.getElementById('status');
+        const overlay = document.getElementById('overlay');
+        const msgEl = document.getElementById('msg');
+        const titleEl = document.getElementById('title');
+        const skinContainer = document.getElementById('skinContainer');
+        const mewBar = document.getElementById('mewBar');
+        const mewBarContainer = document.getElementById('mewBarContainer');
+
+        let gameActive = false;
+        let isHolding = false;
+        let score = 0;
+        let highScore = 0;
+        let rizzLevel = 0;
+        let speedMult = 1;
+        let shake = 0;
+        let animationId = null;
+        
+        let mewStreak = 0;
+        const maxMewStreak = 5;
+        let isMogging = false;
+        let mogTimer = 0;
+        const mogDuration = 300; 
+
+        let floatingTexts = [];
+
+        // Skin System
+        const skins = [
+            { name: "WINTER ARC", emoji: "🥶", color: "#afeeee", trail: "#ffffff", bgStart: "#0f2027", bgEnd: "#2c5364", unlock: 0 },
+            { name: "DEFAULT", emoji: "🗿", color: "#ff00ff", trail: "#00ffff", bgStart: "#0d001a", bgEnd: "#200040", unlock: 0 },
+            { name: "GOLDEN", emoji: "👑", color: "#ffd700", trail: "#ffffff", bgStart: "#1a1a00", bgEnd: "#403a00", unlock: 2000 },
+            { name: "TOXIC", emoji: "☣️", color: "#00ff00", trail: "#ccff00", bgStart: "#001a00", bgEnd: "#003300", unlock: 5000 },
+            { name: "OHIO", emoji: "💀", color: "#ff0000", trail: "#ffaa00", bgStart: "#1a0000", bgEnd: "#400000", unlock: 0 }
+        ];
+        let currentSkin = skins[0]; 
+
+        let player = { x: 100, y: 0, w: 40, h: 40, vy: 5, angle: 0, inverted: false, hasShield: false };
+        let obstacles = [];
+        let items = [];
+        let portals = [];
+        let spinners = [];
+        let drones = [];
+        let particles = [];
+        let stars = []; 
+        let trail = []; 
+        let frame = 0;
+
+        const slang = ["L", "FANUM TAX", "OHIO", "COOKED", "LACKING", "SKIBIDI", "YAPPING", "GRIDDY", "DELULU", "BETA", "SUS", "NO CAP", "CRINGE", "NPC", "MID", "GLIZZY", "GRIMACE", "BOP", "GYATT"];
+        const buffs = ["W", "SIGMA", "AURA", "GOAT", "CHAD"];
+        const mewPhrases = ["BYE BYE 🤫", "MEWING", "LOOKSMAX", "CHAD", "MOGGED"];
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            player.y = canvas.height / 2;
+            initStars();
+        }
+
+        function initStars() {
+            stars = [];
+            for(let i=0; i<60; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2 + 0.5,
+                    speed: Math.random() * 3 + 0.5
+                });
+            }
+        }
+
+        function spawnFloatingText(x, y, text, color, size = 12) {
+            floatingTexts.push({ x, y, text, color, life: 60, vy: -2, size });
+        }
+
+        function updateSkinUI() {
+            skinContainer.innerHTML = '';
+            skins.forEach((skin) => {
+                const btn = document.createElement('div');
+                const isUnlocked = highScore >= skin.unlock;
+                btn.className = `skin-btn ${isUnlocked ? 'unlocked' : ''} ${currentSkin === skin ? 'active' : ''}`;
+                btn.innerText = isUnlocked ? `${skin.emoji} ${skin.name}` : `??? (${skin.unlock})`;
+                
+                if(isUnlocked) {
+                    btn.onclick = () => {
+                        currentSkin = skin;
+                        updateSkinUI();
+                    };
+                }
+                skinContainer.appendChild(btn);
+            });
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+        updateSkinUI();
+
+        window.addEventListener('keydown', (e) => { if(e.code === 'Space' || e.code === 'ArrowUp') isHolding = true; });
+        window.addEventListener('keyup', (e) => { if(e.code === 'Space' || e.code === 'ArrowUp') isHolding = false; });
+        window.addEventListener('mousedown', () => isHolding = true);
+        window.addEventListener('mouseup', () => isHolding = false);
+        window.addEventListener('touchstart', (e) => { e.preventDefault(); isHolding = true; }, { passive: false });
+        window.addEventListener('touchend', (e) => { e.preventDefault(); isHolding = false; }, { passive: false });
+
+        function createParticles(x, y, color, count = 8, speed = 8) {
+            for(let i=0; i<count; i++) {
+                particles.push({
+                    x, y, 
+                    vx: (Math.random() - 0.5) * speed,
+                    vy: (Math.random() - 0.5) * speed,
+                    life: 25,
+                    color
+                });
+            }
+        }
+
+        function updateMewBar() {
+            if (isMogging) {
+                const percent = (mogTimer / mogDuration) * 100;
+                mewBar.style.width = `${percent}%`;
+                mewBarContainer.classList.add('mog-active');
+                statusEl.innerText = "MOGGING (MAGNET ACTIVE)";
+                statusEl.style.color = "#ffd700";
+            } else {
+                const percent = (mewStreak / maxMewStreak) * 100;
+                mewBar.style.width = `${percent}%`;
+                mewBarContainer.classList.remove('mog-active');
+                statusEl.innerText = "WAVE DASHING";
+                statusEl.style.color = "#00ffff";
+            }
+        }
+
+        function triggerMogMode() {
+            isMogging = true;
+            mogTimer = mogDuration;
+            shake = 10;
+            createParticles(player.x, player.y, "#ffd700", 30, 20);
+            spawnFloatingText(player.x, player.y - 50, "MOG MODE ACTIVATED!", "#ffd700", 20);
+        }
+
+        // Exported startGame for button click
+        window.startGame = function() {
+            if (animationId) cancelAnimationFrame(animationId);
+
+            const targetUrl = currentSkin.name === "WINTER ARC" ? WINTER_MUSIC_URL : DEFAULT_MUSIC_URL;
+
+            if (targetUrl) {
+                if (currentMusicSrc !== targetUrl) {
+                    bgMusic.src = targetUrl;
+                    currentMusicSrc = targetUrl;
+                    bgMusic.load();
+                    bgMusic.play().catch(e => console.log("Audio play failed:", e));
+                } else if (bgMusic.paused) {
+                    bgMusic.play().catch(e => console.log("Audio play failed:", e));
+                }
+            } else {
+                bgMusic.pause(); 
+            }
+
+            gameActive = true;
+            score = 0;
+            rizzLevel = 0;
+            speedMult = 1; 
+            shake = 0;
+            frame = 0; 
+            
+            mewStreak = 0;
+            isMogging = false;
+            updateMewBar();
+
+            obstacles = [];
+            items = [];
+            portals = [];
+            spinners = [];
+            drones = [];
+            particles = [];
+            floatingTexts = [];
+            trail = [];
+            
+            player.y = canvas.height / 2;
+            player.inverted = false; 
+            player.hasShield = false;
+            
+            scoreEl.innerText = "0";
+            rizzEl.innerText = "LOW";
+            overlay.style.display = 'none';
+            document.getElementById('submitScoreArea').style.display = 'none'; // Hide submit if open
+            
+            animate();
+        }
+
+        function gameOver() {
+            gameActive = false;
+            shake = 20; 
+            if (score > highScore) {
+                highScore = score;
+                highScoreEl.innerText = Math.floor(highScore);
+                updateSkinUI(); 
+            }
+            
+            draw();
+            
+            setTimeout(() => {
+                overlay.style.display = 'block';
+                titleEl.innerText = "WAVE CRASHED";
+                msgEl.innerHTML = `LACK OF AURA DETECTED<br><span class="text-2xl">SCORE: ${Math.floor(score)}</span><br>RIZZ RANK: ${rizzEl.innerText}`;
+                
+                // Show Score Submit if score is decent
+                if (score > 100) {
+                    document.getElementById('submitScoreArea').style.display = 'block';
+                    document.querySelector('#submitScoreArea button').innerText = "SAVE AURA";
+                    document.querySelector('#submitScoreArea button').disabled = false;
+                } else {
+                    document.getElementById('submitScoreArea').style.display = 'none';
+                }
+
+                document.querySelector('.btn:last-of-type').innerText = "RETRY";
+            }, 500);
+        }
+
+        function spawnObstacle() {
+            if (frame % Math.floor(65 / speedMult) === 0) {
+                const type = slang[Math.floor(Math.random() * slang.length)];
+                const isTop = Math.random() > 0.5;
+                const h = 120 + Math.random() * 180;
+                
+                let obsColor;
+                if (currentSkin.name === "WINTER ARC") {
+                    obsColor = "#2b6cb0"; 
+                } else {
+                    obsColor = type === "OHIO" ? "#ff8800" : "#ff0044";
+                }
+
+                obstacles.push({
+                    x: canvas.width,
+                    y: isTop ? 0 : canvas.height - h,
+                    w: 80 + (type.length * 10),
+                    h: h,
+                    text: type,
+                    color: obsColor,
+                    isTop: isTop
+                });
+            }
+        }
+
+        function spawnPortal() {
+            if (frame % 800 === 0 && frame > 100) {
+                const type = player.inverted ? "NORMAL" : "INVERTED"; 
+                portals.push({
+                    x: canvas.width,
+                    y: 100 + Math.random() * (canvas.height - 200),
+                    w: 50,
+                    h: 50,
+                    type: type,
+                    emoji: type === "INVERTED" ? "🔴" : "🟢"
+                });
+            }
+        }
+
+        function spawnSpinner() {
+             if (frame % 180 === 0 && frame > 200) {
+                 spinners.push({
+                     x: canvas.width,
+                     y: 100 + Math.random() * (canvas.height - 200),
+                     r: 35, 
+                     angle: 0,
+                     speed: 0.2 + Math.random() * 0.1 
+                 });
+             }
+        }
+
+        function spawnDrone() {
+            if (frame % 500 === 0 && frame > 300) {
+                drones.push({
+                    x: canvas.width,
+                    y: 50 + Math.random() * (canvas.height - 100),
+                    w: 60,
+                    h: 40,
+                    vy: (Math.random() - 0.5) * 2
+                });
+            }
+        }
+
+        function spawnItem() {
+            if (frame % 25 === 0) { 
+                const rand = Math.random();
+                let type = "BUFF";
+                let text = "💎";
+                let label = buffs[Math.floor(Math.random() * buffs.length)];
+
+                if (rand < 0.1) {
+                    type = "MEW";
+                    text = "🤫";
+                    label = "MEW";
+                } else if (rand < 0.12) { 
+                    type = "SHIELD";
+                    text = "🛡️";
+                    label = "SHIELD";
+                }
+
+                items.push({
+                    x: canvas.width,
+                    y: 100 + Math.random() * (canvas.height - 200),
+                    w: 50, 
+                    h: 50,
+                    text: text,
+                    label: label,
+                    type: type
+                });
+            }
+        }
+
+        function checkRankUp(prevRizz) {
+            let rank = "";
+            if(rizzLevel > 25) rank = "GIGACHAD";
+            else if(rizzLevel > 15) rank = "SIGMA";
+            else if(rizzLevel > 8) rank = "ALPHA";
+            else if(rizzLevel > 3) rank = "BETA";
+            else rank = "NPC";
+
+            if (rizzEl.innerText !== rank) {
+                rizzEl.innerText = rank;
+                if (rank === "GIGACHAD") rizzEl.style.color = "#00ffff";
+                else if (rank === "SIGMA") rizzEl.style.color = "#00ff00";
+                else if (rank === "ALPHA") rizzEl.style.color = "#ffff00";
+
+                shake = 15;
+                spawnFloatingText(canvas.width/2, canvas.height/2, `${rank} UNLOCKED!`, "#ffffff", 40);
+            }
+        }
+
+        function handleHit(type, obj) {
+            if (isMogging) {
+                createParticles(obj.x || obj.x + obj.w/2, obj.y || obj.y + obj.h/2, "#ffffff", 15, 10);
+                shake = 5;
+                score += 500;
+                spawnFloatingText(player.x, player.y - 30, "MOGGED!", "#ffd700", 15);
+                return true; 
+            } 
+            
+            if (player.hasShield) {
+                player.hasShield = false;
+                createParticles(player.x, player.y, "#00ffff", 20, 15);
+                shake = 10;
+                spawnFloatingText(player.x, player.y - 30, "BLOCKED!", "#00ffff", 20);
+                return true; 
+            }
+
+            return false;
+        }
+
+        function update() {
+            frame++;
+            speedMult += 0.0004;
+
+            if (shake > 0) shake *= 0.9;
+            if (shake < 0.5) shake = 0;
+
+            if (isMogging) {
+                mogTimer--;
+                updateMewBar();
+                if (mogTimer <= 0) {
+                    isMogging = false;
+                    mewStreak = 0;
+                    updateMewBar();
+                    spawnFloatingText(player.x, player.y, "MOG ENDED", "#ff0000");
+                }
+            } 
+
+            const waveSpeed = 7 * speedMult;
+            let targetAngle = 0;
+
+            // Gravity Logic
+            if (player.inverted) {
+                if (isHolding) {
+                    player.y += waveSpeed;
+                    targetAngle = 25 * (Math.PI / 180);
+                } else {
+                    player.y -= waveSpeed;
+                    targetAngle = -25 * (Math.PI / 180);
+                }
+            } else {
+                if (isHolding) {
+                    player.y -= waveSpeed;
+                    targetAngle = -25 * (Math.PI / 180);
+                } else {
+                    player.y += waveSpeed;
+                    targetAngle = 25 * (Math.PI / 180);
+                }
+            }
+            
+            player.angle += (targetAngle - player.angle) * 0.2;
+
+            const pHitbox = {
+                x: player.x + 10,
+                y: player.y + 10,
+                w: player.w - 20,
+                h: player.h - 20
+            };
+
+            // Ceiling/Floor Collision
+            if (pHitbox.y < 5 || pHitbox.y + pHitbox.h > canvas.height - 5) {
+                if (!isMogging && !player.hasShield) {
+                    createParticles(player.x, player.y, currentSkin.color, 20, 15);
+                    gameOver();
+                } else {
+                    shake = 5; 
+                    player.y = Math.max(10, Math.min(canvas.height - 10 - player.h, player.y));
+                }
+            }
+
+            // STAR/SNOW UPDATE LOGIC
+            stars.forEach(star => {
+                if (currentSkin.name === "WINTER ARC") {
+                    // Snow Physics: Fall down and sway
+                    star.y += star.speed * 0.5; 
+                    star.x -= speedMult * 2; // Wind
+                    star.x += Math.sin(frame * 0.05 + star.size) * 0.5; // Sway
+                    
+                    if (star.y > canvas.height) {
+                        star.y = 0;
+                        star.x = Math.random() * canvas.width;
+                    }
+                    if (star.x < 0) {
+                        star.x = canvas.width;
+                        star.y = Math.random() * canvas.height;
+                    }
+                } else {
+                    // Standard Star Physics
+                    star.x -= star.speed;
+                    if(star.x < 0) {
+                        star.x = canvas.width;
+                        star.y = Math.random() * canvas.height;
+                    }
+                }
+            });
+
+            trail.push({ x: player.x, y: player.y + player.h / 2 });
+            if (trail.length > 40) trail.shift();
+            trail.forEach(p => p.x -= 6 * speedMult);
+
+            particles.forEach((p, i) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                if(p.life <= 0) particles.splice(i, 1);
+            });
+
+            floatingTexts.forEach((ft, i) => {
+                ft.y += ft.vy;
+                ft.life--;
+                if (ft.life <= 0) floatingTexts.splice(i, 1);
+            });
+
+            // Portals
+            portals.forEach((portal, i) => {
+                portal.x -= 6 * speedMult;
+                if (portal.x + portal.w < 0) portals.splice(i, 1);
+
+                if (player.x < portal.x + portal.w && player.x + player.w > portal.x &&
+                    player.y < portal.y + portal.h && player.y + player.h > portal.y) {
+                    
+                    let gravityChanged = false;
+                    if (portal.type === "INVERTED" && !player.inverted) {
+                        player.inverted = true;
+                        gravityChanged = true;
+                        shake = 10;
+                        spawnFloatingText(canvas.width/2, canvas.height/3, "GRAVITY FLIPPED!", "#ff0000", 30);
+                        createParticles(portal.x, portal.y, "#ff0000", 20, 10);
+                    } else if (portal.type === "NORMAL" && player.inverted) {
+                        player.inverted = false;
+                        gravityChanged = true;
+                        shake = 10;
+                        spawnFloatingText(canvas.width/2, canvas.height/3, "GRAVITY RESTORED!", "#00ff00", 30);
+                        createParticles(portal.x, portal.y, "#00ff00", 20, 10);
+                    }
+
+                    if (gravityChanged) {
+                        score = score === 0 ? 1000 : score * 2; 
+                        scoreEl.innerText = Math.floor(score);
+                        spawnFloatingText(player.x, player.y - 60, "SCORE x2", "#ffd700", 40);
+                        checkRankUp();
+                    }
+                    portals.splice(i, 1);
+                }
+            });
+
+            // Fanum Tax Drones
+            drones.forEach((drone, i) => {
+                drone.x -= 8 * speedMult; // Faster than walls
+                drone.y += drone.vy;
+                if (drone.y < 50 || drone.y > canvas.height - 50) drone.vy *= -1; // Bounce
+
+                if (drone.x + drone.w < 0) drones.splice(i, 1);
+
+                if (player.x < drone.x + drone.w && player.x + player.w > drone.x &&
+                    player.y < drone.y + drone.h && player.y + player.h > drone.y) {
+                    
+                    if (isMogging) {
+                        createParticles(drone.x, drone.y, "#00ff00", 20, 15);
+                        drones.splice(i, 1);
+                        score += 5000;
+                        spawnFloatingText(player.x, player.y - 40, "TAX EVADED! +5000", "#00ff00", 25);
+                    } else if (player.hasShield) {
+                        player.hasShield = false;
+                        createParticles(drone.x, drone.y, "#00ffff", 15, 10);
+                        drones.splice(i, 1);
+                        spawnFloatingText(player.x, player.y - 30, "DRONE BLOCKED", "#00ffff", 15);
+                    } else {
+                        // GET TAXED
+                        createParticles(player.x, player.y, "#ff0000", 10, 5);
+                        drones.splice(i, 1);
+                        let tax = Math.floor(score * 0.2);
+                        score -= tax;
+                        if(score < 0) score = 0;
+                        scoreEl.innerText = Math.floor(score);
+                        shake = 15;
+                        spawnFloatingText(player.x, player.y - 40, `FANUM TAX! -${tax}`, "#ff0000", 25);
+                    }
+                }
+            });
+
+            // Spinners
+            spinners.forEach((spinner, i) => {
+                spinner.x -= 6 * speedMult;
+                spinner.angle += spinner.speed; 
+                if (spinner.x + spinner.r * 2 < 0) spinners.splice(i, 1);
+
+                const dx = (player.x + player.w/2) - (spinner.x);
+                const dy = (player.y + player.h/2) - (spinner.y);
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < spinner.r + player.w/3) { 
+                     if (handleHit("spinner", spinner)) {
+                         spinners.splice(i, 1);
+                     } else {
+                        createParticles(player.x, player.y, currentSkin.color, 20, 15);
+                        gameOver();
+                     }
+                }
+            });
+
+            obstacles.forEach((obs, i) => {
+                obs.x -= 6 * speedMult;
+                if (obs.x + obs.w < 0) obstacles.splice(i, 1);
+
+                let obsHitboxX = obs.x + (obs.w * 0.25); 
+                let obsHitboxW = obs.w * 0.5;           
+                let obsHitboxH = obs.h * 0.9;          
+                let obsHitboxY = obs.isTop ? obs.y : obs.y + (obs.h * 0.1);
+
+                if (pHitbox.x < obsHitboxX + obsHitboxW &&
+                    pHitbox.x + pHitbox.w > obsHitboxX &&
+                    pHitbox.y < obsHitboxY + obsHitboxH &&
+                    pHitbox.y + pHitbox.h > obsHitboxY) {
+                    
+                    if (handleHit("obstacle", obs)) {
+                        obstacles.splice(i, 1);
+                    } else {
+                        createParticles(player.x, player.y, currentSkin.color, 20, 15);
+                        gameOver();
+                    }
+                }
+            });
+
+            items.forEach((item, i) => {
+                let itemSpeedX = 6 * speedMult;
+                
+                if (isMogging) {
+                    const dx = player.x - item.x;
+                    const dy = player.y - item.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (dist < 400) { 
+                        const pullStrength = 15;
+                        item.x += (dx / dist) * pullStrength;
+                        item.y += (dy / dist) * pullStrength;
+                        itemSpeedX = 0; 
+                    }
+                }
+
+                item.x -= itemSpeedX;
+                
+                if (item.x + item.w < 0) items.splice(i, 1);
+
+                if (player.x < item.x + item.w && player.x + player.w > item.x &&
+                    player.y < item.y + item.h && player.y + player.h > item.y) {
+                    items.splice(i, 1);
+                    
+                    if (item.type === "MEW") {
+                        if (!isMogging) {
+                            mewStreak++;
+                            score += 1000;
+                            createParticles(item.x, item.y, '#00ffff', 10, 5);
+                            spawnFloatingText(item.x, item.y, mewPhrases[Math.floor(Math.random() * mewPhrases.length)], "#00ffff");
+                            
+                            if (mewStreak >= maxMewStreak) {
+                                triggerMogMode();
+                            } else {
+                                updateMewBar();
+                            }
+                        } else {
+                            score += 2000; 
+                            spawnFloatingText(item.x, item.y, "+2000", "#ffff00");
+                        }
+                    } else if (item.type === "SHIELD") {
+                        player.hasShield = true;
+                        score += 500;
+                        createParticles(item.x, item.y, '#00ffff', 15, 10);
+                        spawnFloatingText(item.x, item.y, "SHIELDED", "#00ffff", 16);
+                    } else {
+                        score += 500;
+                        rizzLevel++;
+                        checkRankUp(); 
+                        createParticles(item.x, item.y, '#ffff00');
+                        spawnFloatingText(item.x, item.y, "+500", "#fff");
+                    }
+                    scoreEl.innerText = Math.floor(score);
+                }
+            });
+
+            spawnObstacle();
+            spawnItem();
+            spawnPortal();
+            spawnSpinner();
+            spawnDrone();
+        }
+
+        function drawSpeedFace(ctx, w, h) {
+            const pulse = Math.sin(Date.now() / 50) * 30; 
+            ctx.fillStyle = `rgb(${60 + pulse}, 0, 0)`; 
+            ctx.fillRect(0, 0, w, h);
+            
+            const centerX = w / 2;
+            const centerY = h / 2;
+            const size = Math.min(w, h) * 0.75;
+            
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            
+            const shakeX = (Math.random() - 0.5) * 12;
+            const shakeY = (Math.random() - 0.5) * 12;
+            ctx.translate(shakeX, shakeY);
+
+            // Dreads/Hair 
+            ctx.fillStyle = '#000';
+            const dreadCount = 14;
+            for(let i = 0; i <= dreadCount; i++) {
+                const angle = Math.PI + (Math.PI * i / dreadCount);
+                const len = size * 0.15 + Math.random() * size * 0.05; 
+                const x = Math.cos(angle) * (size * 0.35);
+                const y = Math.sin(angle) * (size * 0.35) - size * 0.1;
+                ctx.beginPath();
+                ctx.ellipse(x, y, size * 0.08, len, angle - Math.PI/2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Face 
+            ctx.fillStyle = '#5c3a21'; 
+            ctx.beginPath();
+            ctx.ellipse(0, 0, size * 0.35, size * 0.45, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Hairline
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(0, -size * 0.32, size * 0.36, Math.PI, 0); 
+            ctx.lineTo(size * 0.36, -size * 0.2);
+            ctx.lineTo(-size * 0.36, -size * 0.2);
+            ctx.fill();
+            ctx.fillRect(-size * 0.4, -size * 0.3, size * 0.8, size * 0.2);
+
+            // Brows
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = size * 0.03;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.3, -size * 0.15);
+            ctx.lineTo(-size * 0.05, -size * 0.05);
+            ctx.moveTo(size * 0.3, -size * 0.15);
+            ctx.lineTo(size * 0.05, -size * 0.05);
+            ctx.stroke();
+
+            // Eyes Background
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(-size * 0.18, -size * 0.02, size * 0.11, 0, Math.PI * 2); 
+            ctx.arc(size * 0.18, -size * 0.02, size * 0.11, 0, Math.PI * 2);  
+            ctx.fill();
+
+            // Interactive Pupils (Watch Player)
+            ctx.fillStyle = '#000';
+            
+            // Calculate offset based on player Y position relative to center
+            const lookY = ((player.y - canvas.height/2) / (canvas.height/2)) * (size * 0.05);
+            const lookX = ((player.x - canvas.width/2) / (canvas.width/2)) * (size * 0.05);
+
+            ctx.beginPath();
+            ctx.arc(-size * 0.18 + lookX, -size * 0.02 + lookY, size * 0.03, 0, Math.PI * 2);
+            ctx.arc(size * 0.18 + lookX, -size * 0.02 + lookY, size * 0.03, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Mouth 
+            ctx.fillStyle = '#3a0000'; 
+            ctx.beginPath();
+            ctx.ellipse(0, size * 0.28, size * 0.18, size * 0.2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Teeth
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(-size * 0.12, size * 0.08, size * 0.24, size * 0.05);
+            ctx.fillRect(-size * 0.12, size * 0.43, size * 0.24, size * 0.05);
+            
+            // Wrinkles
+            ctx.strokeStyle = '#3e2614'; 
+            ctx.lineWidth = size * 0.01;
+            ctx.beginPath();
+            ctx.arc(0, -size * 0.2, size * 0.1, Math.PI * 1.2, Math.PI * 1.8);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // Procedural Mountain Drawer for Winter Arc
+        function drawMountains(ctx, w, h) {
+            ctx.fillStyle = '#ffffff'; // Snow color
+            ctx.beginPath();
+            ctx.moveTo(0, h);
+            
+            const scroll = frame * 2; 
+            
+            for (let x = 0; x <= w + 100; x += 50) {
+                const worldX = x + scroll;
+                const heightNoise = Math.sin(worldX * 0.005) * 100 + Math.sin(worldX * 0.02) * 30;
+                const peakY = h - 100 + heightNoise; 
+                ctx.lineTo(x, peakY);
+            }
+            
+            ctx.lineTo(w, h);
+            ctx.lineTo(0, h);
+            ctx.fill();
+            
+            ctx.fillStyle = '#64748b'; 
+            ctx.beginPath();
+            ctx.moveTo(0, h);
+            
+            const scroll2 = frame * 1; 
+            for (let x = 0; x <= w + 100; x += 80) {
+                const worldX = x + scroll2;
+                const heightNoise = Math.sin(worldX * 0.003) * 150;
+                const peakY = h - 150 + heightNoise; 
+                ctx.lineTo(x, peakY);
+            }
+            ctx.lineTo(w, h);
+            ctx.lineTo(0, h);
+            ctx.fill();
+        }
+
+        function draw() {
+            ctx.save();
+            
+            if (shake > 0) {
+                const dx = (Math.random() - 0.5) * shake;
+                const dy = (Math.random() - 0.5) * shake;
+                ctx.translate(dx, dy);
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw Background 
+            if (currentSkin.name === "OHIO") {
+                drawSpeedFace(ctx, canvas.width, canvas.height);
+            } else {
+                const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                bgGrad.addColorStop(0, currentSkin.bgStart);
+                bgGrad.addColorStop(1, currentSkin.bgEnd);
+                ctx.fillStyle = bgGrad;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Draw Mountains if Winter Arc
+            if (currentSkin.name === "WINTER ARC") {
+                drawMountains(ctx, canvas.width, canvas.height);
+            }
+
+            // Stars (or Snow)
+            ctx.fillStyle = '#ffffff';
+            stars.forEach(star => {
+                ctx.globalAlpha = (Math.random() * 0.5 + 0.3) * (star.size / 3);
+                ctx.fillRect(star.x, star.y, star.size, star.size);
+            });
+            ctx.globalAlpha = 1;
+
+            // Trail
+            if (trail.length > 1) {
+                ctx.strokeStyle = isMogging ? '#ffd700' : currentSkin.trail;
+                ctx.lineWidth = isMogging ? 8 : 6;
+                ctx.shadowBlur = isMogging ? 25 : 15;
+                ctx.shadowColor = isMogging ? '#ffd700' : currentSkin.trail;
+                ctx.beginPath();
+                ctx.moveTo(trail[0].x, trail[0].y);
+                for (let i = 1; i < trail.length; i++) {
+                    ctx.lineTo(trail[i].x, trail[i].y);
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            // Particles
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life / 25;
+                ctx.fillRect(p.x, p.y, 6, 6);
+            });
+            ctx.globalAlpha = 1;
+
+            // Player (Rotating Triangle)
+            ctx.save();
+            ctx.translate(player.x + player.w/2, player.y + player.h/2);
+            ctx.rotate(player.angle);
+            
+            // Shield Effect
+            if (player.hasShield) {
+                ctx.beginPath();
+                ctx.arc(0, 0, player.w * 0.8, 0, Math.PI*2);
+                ctx.strokeStyle = "#00ffff";
+                ctx.lineWidth = 3;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = "#00ffff";
+                ctx.stroke();
+                ctx.fillStyle = "rgba(0, 255, 255, 0.2)";
+                ctx.fill();
+            }
+
+            ctx.fillStyle = isMogging ? '#ffd700' : currentSkin.color;
+            if (isMogging) {
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#ffd700';
+            }
+            
+            ctx.beginPath();
+            ctx.moveTo(-player.w/2, -player.h/2);
+            ctx.lineTo(player.w/2, 0);
+            ctx.lineTo(-player.w/2, player.h/2);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Eyes for the player if in Ohio mode
+            if (currentSkin.name === "OHIO" && !isMogging) {
+                ctx.fillStyle = "white";
+                ctx.beginPath();
+                ctx.arc(0, -5, 5, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = "black";
+                ctx.beginPath();
+                ctx.arc(1, -5, 2, 0, Math.PI*2);
+                ctx.fill();
+            }
+
+            ctx.shadowBlur = 0;
+            ctx.restore();
+
+            // Obstacles (Spikes)
+            obstacles.forEach(obs => {
+                const grad = ctx.createLinearGradient(obs.x, obs.y, obs.x, obs.y + obs.h);
+                grad.addColorStop(0, obs.color);
+                grad.addColorStop(1, '#000');
+                
+                ctx.fillStyle = grad;
+                ctx.strokeStyle = obs.color;
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = obs.color;
+
+                ctx.beginPath();
+                if (obs.isTop) {
+                    ctx.moveTo(obs.x, 0);
+                    ctx.lineTo(obs.x + obs.w * 0.2, obs.h * 0.7); 
+                    ctx.lineTo(obs.x + obs.w * 0.5, obs.h);       
+                    ctx.lineTo(obs.x + obs.w * 0.8, obs.h * 0.6); 
+                    ctx.lineTo(obs.x + obs.w, 0);
+                } else {
+                    ctx.moveTo(obs.x, canvas.height);
+                    ctx.lineTo(obs.x + obs.w * 0.2, canvas.height - obs.h * 0.7);
+                    ctx.lineTo(obs.x + obs.w * 0.5, canvas.height - obs.h);
+                    ctx.lineTo(obs.x + obs.w * 0.8, canvas.height - obs.h * 0.6);
+                    ctx.lineTo(obs.x + obs.w, canvas.height);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = '14px "Press Start 2P"';
+                ctx.textAlign = 'center';
+                // Add Shadow to Text for better visibility
+                ctx.shadowColor = "black";
+                ctx.shadowBlur = 4;
+                ctx.fillText(obs.text, obs.x + obs.w/2, obs.isTop ? obs.h + 30 : canvas.height - obs.h - 20);
+                ctx.shadowBlur = 0;
+                ctx.textAlign = 'left';
+            });
+
+             // Spinners
+            spinners.forEach(spinner => {
+                ctx.save();
+                ctx.translate(spinner.x, spinner.y);
+                ctx.rotate(spinner.angle);
+                
+                // Blade Base 
+                const grad = ctx.createRadialGradient(0, 0, 5, 0, 0, spinner.r);
+                grad.addColorStop(0, '#e0e0e0');
+                grad.addColorStop(0.5, '#a0a0a0');
+                grad.addColorStop(1, '#606060');
+                
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                
+                const teeth = 12;
+                const outerRadius = spinner.r;
+                const innerRadius = spinner.r * 0.8;
+
+                for (let i = 0; i < teeth; i++) {
+                    const angle = (Math.PI * 2 * i) / teeth;
+                    // Tooth tip
+                    ctx.lineTo(Math.cos(angle) * outerRadius, Math.sin(angle) * outerRadius);
+                    // Tooth notch
+                    ctx.lineTo(Math.cos(angle + 0.3) * innerRadius, Math.sin(angle + 0.3) * innerRadius);
+                }
+                
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.strokeStyle = '#404040';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(0, 0, spinner.r * 0.6, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.stroke();
+
+                ctx.fillStyle = '#404040';
+                ctx.beginPath();
+                ctx.arc(0, 0, spinner.r * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(0, 0, spinner.r * 0.7, 0, Math.PI * 1.5);
+                ctx.stroke();
+                
+                ctx.restore();
+            });
+
+            // Fanum Drones
+            drones.forEach(drone => {
+                ctx.save();
+                ctx.translate(drone.x, drone.y);
+                
+                // Hover effect
+                ctx.translate(0, Math.sin(frame * 0.1) * 5);
+
+                // Body
+                ctx.fillStyle = "#333";
+                ctx.beginPath();
+                ctx.ellipse(drone.w/2, drone.h/2, drone.w/2, drone.h/3, 0, 0, Math.PI*2);
+                ctx.fill();
+
+                // Rotors
+                ctx.fillStyle = "#555";
+                const rotorOffset = Math.sin(frame * 0.5) * 5;
+                ctx.fillRect(0, 0, 10, 5);
+                ctx.fillRect(drone.w-10, 0, 10, 5);
+
+                // Green Money Sign
+                ctx.fillStyle = "#00ff00";
+                ctx.font = "20px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("$", drone.w/2, drone.h/2);
+
+                // Tax Label
+                ctx.fillStyle = "#ff0000";
+                ctx.font = "8px 'Press Start 2P'";
+                ctx.fillText("TAX", drone.w/2, -10);
+
+                ctx.restore();
+            });
+
+            // Portals
+            portals.forEach(portal => {
+                ctx.font = "50px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = portal.type === "INVERTED" ? "red" : "green";
+                ctx.fillText(portal.emoji, portal.x + portal.w/2, portal.y + portal.h/2);
+                ctx.shadowBlur = 0;
+            });
+
+            // Items (Emoji Sprites)
+            items.forEach(item => {
+                let color = '#ffff00';
+                if (item.type === "MEW") color = '#00ffff';
+                if (item.type === "SHIELD") color = '#ffffff';
+
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = color;
+                
+                ctx.font = '35px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(item.text, item.x + item.w/2, item.y + item.h/2);
+                
+                ctx.shadowBlur = 0;
+
+                ctx.fillStyle = '#fff'; 
+                ctx.font = item.type === "MEW" ? '8px "Press Start 2P"' : '10px "Press Start 2P"';
+                ctx.fillText(item.label[0], item.x + item.w/2, item.y + item.h + 15);
+                ctx.textAlign = 'left';
+            });
+
+            // Render Floating Texts
+            ctx.textAlign = 'center';
+            floatingTexts.forEach(ft => {
+                ctx.fillStyle = ft.color;
+                ctx.font = `${ft.size}px "Press Start 2P"`;
+                ctx.globalAlpha = ft.life / 60;
+                ctx.shadowColor = "black"; // Shadow for readability
+                ctx.shadowBlur = 2;
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.shadowBlur = 0;
+            });
+            ctx.globalAlpha = 1;
+            ctx.textAlign = 'left';
+
+            // Brainrot Fog
+            const fogIntensity = Math.min(0.8, score / 20000); 
+            if (fogIntensity > 0.1) {
+                const gradient = ctx.createRadialGradient(
+                    canvas.width/2, canvas.height/2, canvas.height/3, 
+                    canvas.width/2, canvas.height/2, canvas.width
+                );
+                gradient.addColorStop(0, "rgba(0,0,0,0)");
+                gradient.addColorStop(1, `rgba(0,0,0,${fogIntensity})`);
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            
+            ctx.restore();
+        }
+
+        function animate() {
+            if (!gameActive && shake <= 0) return;
+            if (gameActive) update();
+            draw();
+            if (gameActive || shake > 0) {
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+
+        draw();
+    </script>
+</body>
+</html>
