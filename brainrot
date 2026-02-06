@@ -60,13 +60,6 @@
             border-radius: 10px;
             text-transform: uppercase;
         }
-        .btn-small {
-            padding: 10px 15px; 
-            font-size: 12px;
-            background: #333;
-            border: 1px solid #fff;
-            margin-top: 5px;
-        }
         @keyframes pulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.05); }
@@ -130,35 +123,6 @@
             background: linear-gradient(90deg, #ffd700, #ffaa00);
             box-shadow: 0 0 15px #ffd700;
         }
-        
-        /* Leaderboard Styles */
-        #leaderboard {
-            margin-top: 20px;
-            text-align: left;
-            font-size: 10px;
-            border-top: 2px solid #555;
-            padding-top: 10px;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-        .lb-entry {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-            color: #ccc;
-        }
-        .lb-entry.top { color: #ffd700; }
-        input[type="text"] {
-            background: #000;
-            border: 2px solid #00ffff;
-            color: #fff;
-            padding: 10px;
-            font-family: 'Press+Start+2P';
-            font-size: 12px;
-            width: 80%;
-            margin-top: 10px;
-            text-align: center;
-        }
     </style>
 </head>
 <body>
@@ -192,115 +156,12 @@
             <div id="skinContainer" class="flex flex-wrap justify-center gap-2"></div>
         </div>
 
-        <div id="submitScoreArea" style="display:none;">
-            <input type="text" id="playerName" placeholder="ENTER NAME" maxlength="10">
-            <button class="btn btn-small" onclick="submitScore()">SAVE AURA</button>
-        </div>
-
-        <div id="leaderboard">
-            <div class="text-center text-yellow-400 mb-2">🏆 GLOBAL LEADERBOARD 🏆</div>
-            <div id="lbContent">Loading scores...</div>
-        </div>
-
         <button class="btn" onclick="startGame()">LOCK IN</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
-    <script type="module">
-        // ==========================================
-        // 🔥 FIREBASE SETUP 🔥
-        // ==========================================
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-        import { getAuth, signInAnonymously, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-        import { getFirestore, collection, addDoc, getDocs, query } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
-
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        let user = null;
-
-        // Auth Logic
-        async function initAuth() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                user = auth.currentUser;
-                fetchLeaderboard(); // Load scores once auth is done
-            } catch (e) {
-                console.error("Auth failed", e);
-                document.getElementById('lbContent').innerText = "Offline Mode";
-            }
-        }
-        initAuth();
-
-        // Database Logic
-        window.submitScore = async function() {
-            const nameInput = document.getElementById('playerName');
-            const name = nameInput.value.trim() || "Anon";
-            if (!user) return;
-
-            // Simple validation
-            if(score <= 0) return;
-
-            const btn = document.querySelector('#submitScoreArea button');
-            btn.innerText = "SAVING...";
-            btn.disabled = true;
-
-            try {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'brainrot_scores'), {
-                    name: name,
-                    score: Math.floor(score),
-                    skin: currentSkin.name,
-                    date: Date.now()
-                });
-                document.getElementById('submitScoreArea').style.display = 'none';
-                await fetchLeaderboard(); // Refresh
-            } catch (e) {
-                console.error("Save failed", e);
-                btn.innerText = "ERROR";
-            }
-        };
-
-        async function fetchLeaderboard() {
-            if (!user) return;
-            const lbDiv = document.getElementById('lbContent');
-            lbDiv.innerHTML = "Fetching stats...";
-
-            try {
-                // Rule: No complex queries. Fetch all, sort in JS.
-                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'brainrot_scores'));
-                const snapshot = await getDocs(q);
-                let scores = [];
-                snapshot.forEach(doc => scores.push(doc.data()));
-
-                // Sort descending
-                scores.sort((a, b) => b.score - a.score);
-                
-                // Top 5 only
-                const top5 = scores.slice(0, 5);
-
-                let html = "";
-                top5.forEach((s, i) => {
-                    html += `<div class="lb-entry ${i===0 ? 'top' : ''}">
-                        <span>#${i+1} ${s.name.substring(0,10)}</span>
-                        <span>${s.score}</span>
-                    </div>`;
-                });
-                if(scores.length === 0) html = "<div>No scores yet. Be the first!</div>";
-                
-                lbDiv.innerHTML = html;
-            } catch (e) {
-                console.error("Fetch failed", e);
-                lbDiv.innerHTML = "Failed to load.";
-            }
-        }
-
+    <script>
         // ==========================================
         // 🎵 MUSIC SETUP 🎵
         const WINTER_MUSIC_URL = "https://files.catbox.moe/xdcze2.mp3"; 
@@ -328,7 +189,9 @@
         let gameActive = false;
         let isHolding = false;
         let score = 0;
-        let highScore = 0;
+        let highScore = localStorage.getItem('brainrot_highscore') || 0; // Load from local storage
+        highScoreEl.innerText = Math.floor(highScore);
+
         let rizzLevel = 0;
         let speedMult = 1;
         let shake = 0;
@@ -455,8 +318,7 @@
             spawnFloatingText(player.x, player.y - 50, "MOG MODE ACTIVATED!", "#ffd700", 20);
         }
 
-        // Exported startGame for button click
-        window.startGame = function() {
+        function startGame() {
             if (animationId) cancelAnimationFrame(animationId);
 
             const targetUrl = currentSkin.name === "WINTER ARC" ? WINTER_MUSIC_URL : DEFAULT_MUSIC_URL;
@@ -501,7 +363,6 @@
             scoreEl.innerText = "0";
             rizzEl.innerText = "LOW";
             overlay.style.display = 'none';
-            document.getElementById('submitScoreArea').style.display = 'none'; // Hide submit if open
             
             animate();
         }
@@ -511,6 +372,7 @@
             shake = 20; 
             if (score > highScore) {
                 highScore = score;
+                localStorage.setItem('brainrot_highscore', Math.floor(highScore)); // Save to local storage
                 highScoreEl.innerText = Math.floor(highScore);
                 updateSkinUI(); 
             }
@@ -521,17 +383,7 @@
                 overlay.style.display = 'block';
                 titleEl.innerText = "WAVE CRASHED";
                 msgEl.innerHTML = `LACK OF AURA DETECTED<br><span class="text-2xl">SCORE: ${Math.floor(score)}</span><br>RIZZ RANK: ${rizzEl.innerText}`;
-                
-                // Show Score Submit if score is decent
-                if (score > 100) {
-                    document.getElementById('submitScoreArea').style.display = 'block';
-                    document.querySelector('#submitScoreArea button').innerText = "SAVE AURA";
-                    document.querySelector('#submitScoreArea button').disabled = false;
-                } else {
-                    document.getElementById('submitScoreArea').style.display = 'none';
-                }
-
-                document.querySelector('.btn:last-of-type').innerText = "RETRY";
+                document.querySelector('.btn').innerText = "RETRY";
             }, 500);
         }
 
